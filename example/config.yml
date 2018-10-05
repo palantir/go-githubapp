@@ -1,0 +1,15 @@
+server:
+  address: "0.0.0.0"
+  port: 8080
+  public_url: "http://localhost:8080"
+
+github:
+  v3_api_url: "https://api.github.com/"
+  app:
+    integration_id: 0
+    webhook_secret: "your-app-webhook-secret-here"
+    private_key: |
+      your-app-private-key-content-here
+
+app_configuration:
+  pull_request_preamble: "I am echo bot."
