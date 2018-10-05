@@ -1,6 +1,6 @@
 common:
   godel-cache:
-    key: &godel-cache-key v2-godel-cache-{{ checksum "godelw" }}-{{ checksum "godel/config/godel.yml" }}
+    key: &godel-cache-key v1-godel-cache-{{ checksum "godelw" }}-{{ checksum "godel/config/godel.yml" }}
     <<: &restore-godel-cache
       restore_cache:
         keys:
@@ -10,6 +10,18 @@ common:
         key: *godel-cache-key
         paths:
           - ~/.godel
+
+  vendor-cache:
+    key: &vendor-cache-key v1-vendor-cache-{{ checksum "Gopkg.lock" }}
+    <<: &restore-vendor-cache
+      restore_cache:
+        keys:
+          - *vendor-cache-key
+    <<: &save-vendor-cache
+      save_cache:
+        key: *vendor-cache-key
+        paths:
+          - vendor
 
   test-results:
     dir: &results-dir /tmp/test-results
@@ -36,6 +48,9 @@ jobs:
       - *restore-godel-cache
       - run: ./godelw version
       - *save-godel-cache
+      - *restore-vendor-cache
+      - run: ./godelw run-dep -- ensure -vendor-only
+      - *save-vendor-cache
       - run: mkdir -p "${TESTS_DIR}"
       - run: ./godelw verify --apply=false --junit-output="$TESTS_DIR/$CIRCLE_PROJECT_REPONAME-tests.xml"
       - *store-results
