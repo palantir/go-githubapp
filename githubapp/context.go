@@ -35,8 +35,8 @@ const (
 func PrepareRepoContext(ctx context.Context, installationID int64, repo *github.Repository) (context.Context, zerolog.Logger) {
 	logctx := zerolog.Ctx(ctx).With()
 
-	attachInstallationLogKeys(logctx, installationID)
-	attachRepoLogKeys(logctx, repo)
+	logctx = attachInstallationLogKeys(logctx, installationID)
+	logctx = attachRepoLogKeys(logctx, repo)
 
 	logger := logctx.Logger()
 	return logger.WithContext(ctx), logger
@@ -47,29 +47,33 @@ func PrepareRepoContext(ctx context.Context, installationID int64, repo *github.
 func PreparePRContext(ctx context.Context, installationID int64, repo *github.Repository, number int) (context.Context, zerolog.Logger) {
 	logctx := zerolog.Ctx(ctx).With()
 
-	attachInstallationLogKeys(logctx, installationID)
-	attachRepoLogKeys(logctx, repo)
-	attachPullRequestLogKeys(logctx, number)
+	logctx = attachInstallationLogKeys(logctx, installationID)
+	logctx = attachRepoLogKeys(logctx, repo)
+	logctx = attachPullRequestLogKeys(logctx, number)
 
 	logger := logctx.Logger()
 	return logger.WithContext(ctx), logger
 }
 
-func attachInstallationLogKeys(logctx zerolog.Context, installID int64) {
+func attachInstallationLogKeys(logctx zerolog.Context, installID int64) zerolog.Context {
 	if installID > 0 {
-		logctx.Int64(LogKeyInstallationID, installID)
+		return logctx.Int64(LogKeyInstallationID, installID)
 	}
+	return logctx
 }
 
-func attachRepoLogKeys(logctx zerolog.Context, repo *github.Repository) {
+func attachRepoLogKeys(logctx zerolog.Context, repo *github.Repository) zerolog.Context {
 	if repo != nil {
-		logctx.Str(LogKeyRepositoryOwner, repo.GetOwner().GetLogin())
-		logctx.Str(LogKeyRepositoryName, repo.GetName())
+		return logctx.
+			Str(LogKeyRepositoryOwner, repo.GetOwner().GetLogin()).
+			Str(LogKeyRepositoryName, repo.GetName())
 	}
+	return logctx
 }
 
-func attachPullRequestLogKeys(logctx zerolog.Context, number int) {
+func attachPullRequestLogKeys(logctx zerolog.Context, number int) zerolog.Context {
 	if number > 0 {
-		logctx.Int(LogKeyPRNum, number)
+		return logctx.Int(LogKeyPRNum, number)
 	}
+	return logctx
 }
