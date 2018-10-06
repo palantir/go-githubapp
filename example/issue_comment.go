@@ -50,16 +50,17 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 	repo := event.GetRepo()
 	prNum := event.GetIssue().GetNumber()
 	installationID := h.GetInstallationIDFromEvent(&event)
-	ctx, client, err := h.PreparePRContext(ctx, installationID, event.GetRepo(), event.GetIssue().GetNumber())
-	if err != nil {
-		return err
-	}
 
-	logger := zerolog.Ctx(ctx)
+	ctx, logger := githubapp.PreparePRContext(ctx, installationID, repo, event.GetIssue().GetNumber())
 
 	logger.Debug().Msgf("Event action is %s", event.GetAction())
 	if event.GetAction() != "created" {
 		return nil
+	}
+
+	client, err := h.ClientCreator.NewInstallationClient(installationID)
+	if err != nil {
+		return err
 	}
 
 	repoOwner := repo.GetOwner().GetLogin()

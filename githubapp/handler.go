@@ -15,19 +15,7 @@
 package githubapp
 
 import (
-	"context"
-
 	"github.com/google/go-github/github"
-	"github.com/rs/zerolog"
-)
-
-const (
-	LogKeyEventType       string = "github_event_type"
-	LogKeyDeliveryID      string = "github_delivery_id"
-	LogKeyRepositoryName  string = "github_repository_name"
-	LogKeyRepositoryOwner string = "github_repository_owner"
-	LogKeyPRNum           string = "github_pr_num"
-	LogKeyInstallationID  string = "github_installation_id"
 )
 
 type BaseHandler struct {
@@ -59,52 +47,4 @@ type InstallationSource interface {
 
 func (b *BaseHandler) GetInstallationIDFromEvent(event InstallationSource) int64 {
 	return event.GetInstallation().GetID()
-}
-
-func (b *BaseHandler) PreparePRContext(ctx context.Context, installationID int64, repo *github.Repository, prNum int) (context.Context, *github.Client, error) {
-	client, err := b.ClientCreator.NewInstallationClient(installationID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	logger := zerolog.Ctx(ctx).
-		With().
-		Str(LogKeyRepositoryOwner, repo.GetOwner().GetLogin()).
-		Str(LogKeyRepositoryName, repo.GetName()).
-		Int(LogKeyPRNum, prNum).
-		Int64(LogKeyInstallationID, installationID).
-		Logger()
-
-	return logger.WithContext(ctx), client, nil
-}
-
-func (b *BaseHandler) PrepareRepoContext(ctx context.Context, installationID int64, repo *github.Repository) (context.Context, *github.Client, error) {
-	client, err := b.ClientCreator.NewInstallationClient(installationID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	logger := zerolog.Ctx(ctx).
-		With().
-		Str(LogKeyRepositoryOwner, repo.GetOwner().GetLogin()).
-		Str(LogKeyRepositoryName, repo.GetName()).
-		Int64(LogKeyInstallationID, installationID).
-		Logger()
-
-	return logger.WithContext(ctx), client, nil
-}
-
-func (b *BaseHandler) PrepareOrgContext(ctx context.Context, installationID int64, org *github.Organization) (context.Context, *github.Client, error) {
-	client, err := b.ClientCreator.NewInstallationClient(installationID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	logger := zerolog.Ctx(ctx).
-		With().
-		Str(LogKeyRepositoryOwner, org.GetLogin()).
-		Int64(LogKeyInstallationID, installationID).
-		Logger()
-
-	return logger.WithContext(ctx), client, nil
 }
