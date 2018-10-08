@@ -45,7 +45,7 @@ type InstallationsService interface {
 	GetByOwner(ctx context.Context, owner string) (Installation, error)
 }
 
-type simpleInstallationsService struct {
+type defaultInstallationsService struct {
 	*github.Client
 }
 
@@ -53,7 +53,7 @@ type simpleInstallationsService struct {
 // GitHub. It should be created with a client that authenticates as the target
 // application.
 func NewInstallationsService(appClient *github.Client) InstallationsService {
-	return simpleInstallationsService{appClient}
+	return defaultInstallationsService{appClient}
 }
 
 func toInstallation(from *github.Installation) Installation {
@@ -69,7 +69,7 @@ func isNotFound(err error) bool {
 	return ok && rerr.Response.StatusCode == http.StatusNotFound
 }
 
-func (i simpleInstallationsService) ListAll(ctx context.Context) ([]Installation, error) {
+func (i defaultInstallationsService) ListAll(ctx context.Context) ([]Installation, error) {
 	opt := github.ListOptions{
 		PerPage: 100,
 	}
@@ -92,7 +92,7 @@ func (i simpleInstallationsService) ListAll(ctx context.Context) ([]Installation
 	return allInstallations, nil
 }
 
-func (i simpleInstallationsService) GetByOwner(ctx context.Context, owner string) (Installation, error) {
+func (i defaultInstallationsService) GetByOwner(ctx context.Context, owner string) (Installation, error) {
 	installation, _, err := i.Apps.FindOrganizationInstallation(ctx, owner)
 	if err != nil {
 		if isNotFound(err) {
