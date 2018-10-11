@@ -26,7 +26,7 @@ multiple event types if they require the same actions:
 
 ```go
 type CommentHandler struct {
-    githubapp.BaseHandler
+    githubapp.ClientCreator
 }
 
 func (h *CommentHandler) Handles() []string {
@@ -44,18 +44,18 @@ func (h *CommentHandler) Handle(ctx context.Context, eventType, deliveryID strin
 }
 ```
 
-We recommend embedding `githubapp.BaseHandler` in handler implementations. It
-provides access to GitHub clients and other utility methods.
+We recommend embedding `githubapp.ClientCreator` in handler implementations as
+an easy way to access GitHub clients.
 
 Once you define handlers, register them with an event dispatcher and associate
 it with a route in any `net/http`-compatible HTTP router:
 
 ```go
 func registerRoutes(c githubapp.Config) {
-    base := githubapp.NewDefaultBaseHandler(c)
+    cc := githubapp.NewDefaultCachingClientCreator(c)
 
     http.Handle("/api/github/hook", githubapp.NewDefaultEventDispatcher(c,
-        &CommentHandler{base},
+        &CommentHandler{cc},
         // ...
     ))
 }
@@ -139,12 +139,8 @@ distinct clients:
 [as the application]: https://developer.github.com/apps/building-github-apps/authenticating-with-github-apps/#authenticating-as-a-github-app
 [as an installation]: https://developer.github.com/apps/building-github-apps/authenticating-with-github-apps/#authenticating-as-an-installation
 
-The `githubapp.BaseHandler` type embeds a `ClientCreator` so event handlers
-have easy access to GitHub clients.
-
 `go-githubapp` also exposes various configuration options for GitHub clients.
-These are provided when calling `githubapp.NewClientCreator` and through the
-`githubapp.NewDefaultBaseHandler` convenience function:
+These are provided when calling `githubapp.NewClientCreator`:
 
 - `githubapp.WithClientUserAgent` sets a `User-Agent` string for all clients
 - `githubapp.WithClientMiddleware` allows customization of the
@@ -155,7 +151,7 @@ Add the built-in `githubapp.ClientMetrics` middleware to emit the standard
 metrics described below.
 
 ```go
-baseHandler, err := githubapp.NewDefaultBaseHandler(
+baseHandler, err := githubapp.NewDefaultCachingClientCreator(
     config.Github,
     githubapp.WithClientUserAgent("example-app/1.0.0"),
     githubapp.WithClientMiddleware(

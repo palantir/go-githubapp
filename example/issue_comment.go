@@ -27,7 +27,7 @@ import (
 )
 
 type PRCommentHandler struct {
-	githubapp.BaseHandler
+	githubapp.ClientCreator
 
 	preamble string
 }
@@ -49,7 +49,7 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 
 	repo := event.GetRepo()
 	prNum := event.GetIssue().GetNumber()
-	installationID := h.GetInstallationIDFromEvent(&event)
+	installationID := githubapp.GetInstallationIDFromEvent(&event)
 
 	ctx, logger := githubapp.PreparePRContext(ctx, installationID, repo, event.GetIssue().GetNumber())
 
@@ -58,7 +58,7 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 		return nil
 	}
 
-	client, err := h.ClientCreator.NewInstallationClient(installationID)
+	client, err := h.NewInstallationClient(installationID)
 	if err != nil {
 		return err
 	}
