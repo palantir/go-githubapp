@@ -40,7 +40,7 @@ func main() {
 		panic(err)
 	}
 
-	baseHandler, err := githubapp.NewDefaultBaseHandler(
+	cc, err := githubapp.NewDefaultCachingClientCreator(
 		config.Github,
 		githubapp.WithClientUserAgent("example-app/1.0.0"),
 		githubapp.WithClientMiddleware(
@@ -52,8 +52,8 @@ func main() {
 	}
 
 	prCommentHandler := &PRCommentHandler{
-		BaseHandler: baseHandler,
-		preamble:    config.AppConfig.PullRequestPreamble,
+		ClientCreator: cc,
+		preamble:      config.AppConfig.PullRequestPreamble,
 	}
 
 	webhookHandler := githubapp.NewDefaultEventDispatcher(config.Github, prCommentHandler)

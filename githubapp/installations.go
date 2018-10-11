@@ -30,6 +30,17 @@ type Installation struct {
 	OwnerID int64
 }
 
+// InstallationSource is implemented by GitHub webhook event payload types.
+type InstallationSource interface {
+	GetInstallation() *github.Installation
+}
+
+// GetInstallationIDFromEvent returns the installation ID from a GitHub webhook
+// event payload.
+func GetInstallationIDFromEvent(event InstallationSource) int64 {
+	return event.GetInstallation().GetID()
+}
+
 // InstallationsService retrieves installation information for a given app.
 // Implementations may chose how to retrieve, store, or cache these values.
 //
