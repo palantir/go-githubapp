@@ -147,8 +147,10 @@ These are provided when calling `githubapp.NewClientCreator`:
   `http.RoundTripper` used by all clients and is useful if you want to log
   requests or emit metrics about GitHub requests and responses.
 
-Add the built-in `githubapp.ClientMetrics` middleware to emit the standard
-metrics described below.
+The library provides the following middleware:
+
+- `githubapp.ClientMetrics` emits the standard metrics described below
+- `githubapp.ClientLogging` logs metadata about all requests and responses
 
 ```go
 baseHandler, err := githubapp.NewDefaultCachingClientCreator(
@@ -156,6 +158,7 @@ baseHandler, err := githubapp.NewDefaultCachingClientCreator(
     githubapp.WithClientUserAgent("example-app/1.0.0"),
     githubapp.WithClientMiddleware(
         githubapp.ClientMetrics(registry),
+        githubapp.ClientLogging(zerolog.DebugLevel),
     ),
     ...
 )
