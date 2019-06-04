@@ -23,7 +23,6 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation"
 	"github.com/google/go-github/github"
-	"github.com/gregjones/httpcache"
 	"github.com/pkg/errors"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
@@ -202,11 +201,7 @@ func (c *clientCreator) newClient(base *http.Client, details string) (*github.Cl
 		return nil, errors.Wrapf(err, "failed to parse base URL: %q", c.v3BaseURL)
 	}
 
-	cache := httpcache.NewMemoryCache()
-	cachedTransport := httpcache.NewTransport(cache)
-	cachedTransport.Transport = base.Transport
-
-	client := github.NewClient(cachedTransport.Client())
+	client := github.NewClient(base)
 	client.BaseURL = baseURL
 	client.UserAgent = makeUserAgent(c.userAgent, details)
 
@@ -224,11 +219,7 @@ func (c *clientCreator) newV4Client(base *http.Client, details string) (*githubv
 		return nil, errors.Wrapf(err, "failed to parse base URL: %q", c.v4BaseURL)
 	}
 
-	cache := httpcache.NewMemoryCache()
-	cachedTransport := httpcache.NewTransport(cache)
-	cachedTransport.Transport = base.Transport
-
-	client := githubv4.NewEnterpriseClient(v4BaseURL.String(), cachedTransport.Client())
+	client := githubv4.NewEnterpriseClient(v4BaseURL.String(), base)
 	return client, nil
 }
 
