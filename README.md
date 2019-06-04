@@ -151,7 +151,6 @@ The library provides the following middleware:
 
 - `githubapp.ClientMetrics` emits the standard metrics described below
 - `githubapp.ClientLogging` logs metadata about all requests and responses
-- `githubapp.ClientCaching` caches http requests
 
 ```go
 baseHandler, err := githubapp.NewDefaultCachingClientCreator(
@@ -160,7 +159,6 @@ baseHandler, err := githubapp.NewDefaultCachingClientCreator(
     githubapp.WithClientMiddleware(
         githubapp.ClientMetrics(registry),
         githubapp.ClientLogging(zerolog.DebugLevel),
-        githubapp.ClientCaching(httpcache.NewMemoryCache())
     ),
     ...
 )
