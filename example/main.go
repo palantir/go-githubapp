@@ -17,6 +17,7 @@ package main
 import (
 	"os"
 
+	"github.com/gregjones/httpcache"
 	"github.com/palantir/go-baseapp/baseapp"
 	"github.com/rs/zerolog"
 	"goji.io/pat"
@@ -43,6 +44,7 @@ func main() {
 	cc, err := githubapp.NewDefaultCachingClientCreator(
 		config.Github,
 		githubapp.WithClientUserAgent("example-app/1.0.0"),
+		githubapp.WithClientCache(httpcache.NewMemoryCache()),
 		githubapp.WithClientMiddleware(
 			githubapp.ClientMetrics(server.Registry()),
 		),

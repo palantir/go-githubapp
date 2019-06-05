@@ -116,6 +116,7 @@ type clientCreator struct {
 	privKeyBytes  []byte
 	userAgent     string
 	middleware    []ClientMiddleware
+	cache         httpcache.Cache
 }
 
 var _ ClientCreator = &clientCreator{}
@@ -130,6 +131,13 @@ type ClientMiddleware func(http.RoundTripper) http.RoundTripper
 func WithClientUserAgent(agent string) ClientOption {
 	return func(c *clientCreator) {
 		c.userAgent = agent
+	}
+}
+
+// WithClientCache sets the http cache for all created clients
+func WithClientCache(cache httpcache.Cache) ClientOption {
+	return func(c *clientCreator) {
+		c.cache = cache
 	}
 }
 
@@ -202,11 +210,14 @@ func (c *clientCreator) newClient(base *http.Client, details string) (*github.Cl
 		return nil, errors.Wrapf(err, "failed to parse base URL: %q", c.v3BaseURL)
 	}
 
-	cache := httpcache.NewMemoryCache()
-	cachedTransport := httpcache.NewTransport(cache)
-	cachedTransport.Transport = base.Transport
+	baseClient := base
+	if c.cache != nil {
+		cachedTransport := httpcache.NewTransport(c.cache)
+		cachedTransport.Transport = base.Transport
+		baseClient = cachedTransport.Client()
+	}
 
-	client := github.NewClient(cachedTransport.Client())
+	client := github.NewClient(baseClient)
 	client.BaseURL = baseURL
 	client.UserAgent = makeUserAgent(c.userAgent, details)
 
@@ -224,11 +235,14 @@ func (c *clientCreator) newV4Client(base *http.Client, details string) (*githubv
 		return nil, errors.Wrapf(err, "failed to parse base URL: %q", c.v4BaseURL)
 	}
 
-	cache := httpcache.NewMemoryCache()
-	cachedTransport := httpcache.NewTransport(cache)
-	cachedTransport.Transport = base.Transport
+	baseClient := base
+	if c.cache != nil {
+		cachedTransport := httpcache.NewTransport(c.cache)
+		cachedTransport.Transport = base.Transport
+		baseClient = cachedTransport.Client()
+	}
 
-	client := githubv4.NewEnterpriseClient(v4BaseURL.String(), cachedTransport.Client())
+	client := githubv4.NewEnterpriseClient(v4BaseURL.String(), baseClient)
 	return client, nil
 }
 
