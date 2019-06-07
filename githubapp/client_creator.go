@@ -116,7 +116,7 @@ type clientCreator struct {
 	privKeyBytes  []byte
 	userAgent     string
 	middleware    []ClientMiddleware
-	cacheFunc     func() *httpcache.Cache
+	cache         func() httpcache.Cache
 }
 
 var _ ClientCreator = &clientCreator{}
@@ -135,9 +135,9 @@ func WithClientUserAgent(agent string) ClientOption {
 }
 
 // WithClientCache sets the http cache per constructed client
-func WithClientCache(cacheFunc interface{}) ClientOption {
+func WithClientCache(cache func() httpcache.Cache) ClientOption {
 	return func(c *clientCreator) {
-		c.cacheFunc = cacheFunc.(func() *httpcache.Cache)
+		c.cache = cache
 	}
 }
 
@@ -211,8 +211,8 @@ func (c *clientCreator) newClient(base *http.Client, details string) (*github.Cl
 	}
 
 	baseClient := base
-	if c.cacheFunc != nil {
-		cachedTransport := httpcache.NewTransport(*c.cacheFunc())
+	if c.cache != nil {
+		cachedTransport := httpcache.NewTransport(c.cache())
 		cachedTransport.Transport = base.Transport
 		baseClient = cachedTransport.Client()
 	}

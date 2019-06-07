@@ -44,7 +44,7 @@ func main() {
 	cc, err := githubapp.NewDefaultCachingClientCreator(
 		config.Github,
 		githubapp.WithClientUserAgent("example-app/1.0.0"),
-		githubapp.WithClientCache(httpcache.NewMemoryCache),
+		githubapp.WithClientCache(func() httpcache.Cache { return httpcache.NewMemoryCache() }),
 		githubapp.WithClientMiddleware(
 			githubapp.ClientMetrics(server.Registry()),
 		),
