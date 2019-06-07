@@ -23,7 +23,6 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation"
 	"github.com/google/go-github/github"
-	"github.com/gregjones/httpcache"
 	"github.com/pkg/errors"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
@@ -116,7 +115,6 @@ type clientCreator struct {
 	privKeyBytes  []byte
 	userAgent     string
 	middleware    []ClientMiddleware
-	cache         func() httpcache.Cache
 }
 
 var _ ClientCreator = &clientCreator{}
@@ -131,13 +129,6 @@ type ClientMiddleware func(http.RoundTripper) http.RoundTripper
 func WithClientUserAgent(agent string) ClientOption {
 	return func(c *clientCreator) {
 		c.userAgent = agent
-	}
-}
-
-// WithClientCache sets the http cache per constructed client
-func WithClientCache(cache func() httpcache.Cache) ClientOption {
-	return func(c *clientCreator) {
-		c.cache = cache
 	}
 }
 
@@ -210,14 +201,7 @@ func (c *clientCreator) newClient(base *http.Client, details string) (*github.Cl
 		return nil, errors.Wrapf(err, "failed to parse base URL: %q", c.v3BaseURL)
 	}
 
-	baseClient := base
-	if c.cache != nil {
-		cachedTransport := httpcache.NewTransport(c.cache())
-		cachedTransport.Transport = base.Transport
-		baseClient = cachedTransport.Client()
-	}
-
-	client := github.NewClient(baseClient)
+	client := github.NewClient(base)
 	client.BaseURL = baseURL
 	client.UserAgent = makeUserAgent(c.userAgent, details)
 
