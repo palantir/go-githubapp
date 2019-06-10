@@ -143,6 +143,7 @@ distinct clients:
 These are provided when calling `githubapp.NewClientCreator`:
 
 - `githubapp.WithClientUserAgent` sets a `User-Agent` string for all clients
+- `githubapp.WithClientCache` sets an HTTP cache for all clients
 - `githubapp.WithClientMiddleware` allows customization of the
   `http.RoundTripper` used by all clients and is useful if you want to log
   requests or emit metrics about GitHub requests and responses.
@@ -157,6 +158,7 @@ baseHandler, err := githubapp.NewDefaultCachingClientCreator(
     config.Github,
     githubapp.WithClientUserAgent("example-app/1.0.0"),
     githubapp.WithClientMiddleware(
+        githubapp.ClientCaching(func() httpcache.Cache { return httpcache.NewMemoryCache() }),
         githubapp.ClientMetrics(registry),
         githubapp.ClientLogging(zerolog.DebugLevel),
     ),
