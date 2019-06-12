@@ -129,7 +129,9 @@ func (d *eventDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		w.WriteHeader(status)
 		if len(respbody) != 0 {
-			w.Write(respbody)
+			if n, err := w.Write(respbody); n != len(respbody) || err != nil {
+				logger.Info().Err(err).Msg("error writing response or short write")
+			}
 		}
 	case eventType == "ping":
 		w.WriteHeader(http.StatusOK)
