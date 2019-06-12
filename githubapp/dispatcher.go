@@ -19,7 +19,6 @@ import (
 	"net/http"
 
 	"github.com/google/go-github/github"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
@@ -38,7 +37,9 @@ type EventHandler interface {
 	//
 	// If Handle returns an error, processing stops and the error is passed
 	// directly to the configured error handler.
-	Handle(ctx context.Context, eventType, deliveryID string, payload []byte) error
+	//
+	// Handle can optionally return a webhook response body and HTTP status to return to the client. Set to nil and zero, respectively, to use defaults (nothing and 200 OK).
+	Handle(ctx context.Context, eventType, deliveryID string, payload []byte, w http.ResponseWriter) (status int, respbody []byte, err error)
 }
 
 type ErrorHandler func(http.ResponseWriter, *http.Request, error)
@@ -106,7 +107,9 @@ func (d *eventDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	payloadBytes, err := github.ValidatePayload(r, []byte(d.secret))
 	if err != nil {
-		d.onError(w, r, errors.Wrapf(err, "failed to validate webhook payload"))
+		// if payload fails validation, do not run error handler and return 400 Bad Request
+		logger.Error().Err(err).Msg("invalid webhook or bad signature")
+		http.Error(w, "invalid webhook or bad signature", http.StatusBadRequest)
 		return
 	}
 
@@ -115,12 +118,19 @@ func (d *eventDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case ok:
-		if err := handler.Handle(ctx, eventType, deliveryID, payloadBytes); err != nil {
+		status, respbody, err := handler.Handle(ctx, eventType, deliveryID, payloadBytes, w)
+		if err != nil {
 			// pass error directly so handler can inspect types if needed
 			d.onError(w, r, err)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
+		if status == 0 {
+			status = http.StatusOK
+		}
+		w.WriteHeader(status)
+		if len(respbody) != 0 {
+			w.Write(respbody)
+		}
 	case eventType == "ping":
 		w.WriteHeader(http.StatusOK)
 	default:
