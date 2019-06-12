@@ -92,7 +92,7 @@ func ClientLogging(lvl zerolog.Level) ClientMiddleware {
 		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 			start := time.Now()
 			res, err := next.RoundTrip(r)
-			elapsed := time.Now().Sub(start)
+			elapsed := time.Since(start)
 
 			log := zerolog.Ctx(r.Context())
 			if res != nil {
