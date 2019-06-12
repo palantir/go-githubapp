@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
@@ -36,15 +37,15 @@ func (h *PRCommentHandler) Handles() []string {
 	return []string{"issue_comment"}
 }
 
-func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID string, payload []byte) error {
+func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID string, payload []byte, w http.ResponseWriter) (int, []byte, error) {
 	var event github.IssueCommentEvent
 	if err := json.Unmarshal(payload, &event); err != nil {
-		return errors.Wrap(err, "failed to parse issue comment event payload")
+		return http.StatusBadRequest, nil, errors.Wrap(err, "failed to parse issue comment event payload")
 	}
 
 	if !event.GetIssue().IsPullRequest() {
 		zerolog.Ctx(ctx).Debug().Msg("Issue comment event is not for a pull request")
-		return nil
+		return 0, nil, nil
 	}
 
 	repo := event.GetRepo()
@@ -55,12 +56,12 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 
 	logger.Debug().Msgf("Event action is %s", event.GetAction())
 	if event.GetAction() != "created" {
-		return nil
+		return 0, nil, nil
 	}
 
 	client, err := h.NewInstallationClient(installationID)
 	if err != nil {
-		return err
+		return http.StatusInternalServerError, nil, err
 	}
 
 	repoOwner := repo.GetOwner().GetLogin()
@@ -78,5 +79,5 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 		logger.Error().Err(err).Msg("Failed to comment on pull request")
 	}
 
-	return nil
+	return 0, nil, nil
 }
