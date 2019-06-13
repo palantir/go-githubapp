@@ -158,7 +158,6 @@ baseHandler, err := githubapp.NewDefaultCachingClientCreator(
     config.Github,
     githubapp.WithClientUserAgent("example-app/1.0.0"),
     githubapp.WithClientMiddleware(
-        githubapp.ClientCaching(func() httpcache.Cache { return httpcache.NewMemoryCache() }),
         githubapp.ClientMetrics(registry),
         githubapp.ClientLogging(zerolog.DebugLevel),
     ),
