@@ -17,7 +17,6 @@ package main
 import (
 	"os"
 
-	"github.com/gregjones/httpcache"
 	"github.com/palantir/go-baseapp/baseapp"
 	"github.com/rs/zerolog"
 	"goji.io/pat"
