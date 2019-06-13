@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/bradleyfalzon/ghinstallation"
@@ -85,6 +86,10 @@ type ClientCreator interface {
 	NewTokenV4Client(token string) (*githubv4.Client, error)
 }
 
+var (
+	maxAgeRegex = regexp.MustCompile(`max-age=\d+`)
+)
+
 // NewClientCreator returns a ClientCreator that creates a GitHub client for
 // installations of the app specified by the provided arguments.
 func NewClientCreator(v3BaseURL, v4BaseURL string, integrationID int, privKeyBytes []byte, opts ...ClientOption) ClientCreator {
@@ -117,6 +122,7 @@ type clientCreator struct {
 	userAgent     string
 	middleware    []ClientMiddleware
 	cacheFunc     func() httpcache.Cache
+	cacheControlEnabled bool
 }
 
 var _ ClientCreator = &clientCreator{}
@@ -136,9 +142,10 @@ func WithClientUserAgent(agent string) ClientOption {
 
 // WithClientCaching sets an HTTP cache for all created clients
 // using the provided cache implementation
-func WithClientCaching(cache func() httpcache.Cache) ClientOption {
+func WithClientCaching(cacheControlEnabled bool, cache func() httpcache.Cache) ClientOption {
 	return func(c *clientCreator) {
 		c.cacheFunc = cache
+		c.cacheControlEnabled = cacheControlEnabled
 	}
 }
 
@@ -235,7 +242,7 @@ func (c *clientCreator) newV4Client(base *http.Client, details string) (*githubv
 
 func (c *clientCreator) transport() http.RoundTripper {
 	if c.cacheFunc != nil {
-		return httpcache.NewTransport(c.cacheFunc())
+		return cacheControl(c.cacheControlEnabled)(httpcache.NewTransport(c.cacheFunc()))
 	}
 
 	return http.DefaultTransport
@@ -244,6 +251,23 @@ func (c *clientCreator) transport() http.RoundTripper {
 func applyMiddleware(base *http.Client, middleware []ClientMiddleware) {
 	for i := len(middleware) - 1; i >= 0; i-- {
 		base.Transport = middleware[i](base.Transport)
+	}
+}
+
+func cacheControl(enabled bool) ClientMiddleware {
+	return func(next http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			resp, err := next.RoundTrip(r)
+
+			// Force validation to occur when the cache is disabled by setting max-age=0,
+			// as the cache results will always appear as stale
+			if !enabled {
+				cacheControl := resp.Header.Get("Cache-Control")
+				newCacheControl := maxAgeRegex.ReplaceAll([]byte(cacheControl), []byte("max-age=0"))
+				resp.Header.Set("Cache-Control", string(newCacheControl))
+			}
+			return resp, err
+		})
 	}
 }
 
