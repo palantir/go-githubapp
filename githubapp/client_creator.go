@@ -23,6 +23,7 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation"
 	"github.com/google/go-github/github"
+	"github.com/gregjones/httpcache"
 	"github.com/pkg/errors"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
@@ -115,6 +116,7 @@ type clientCreator struct {
 	privKeyBytes  []byte
 	userAgent     string
 	middleware    []ClientMiddleware
+	cacheFunc     func() httpcache.Cache
 }
 
 var _ ClientCreator = &clientCreator{}
@@ -132,6 +134,14 @@ func WithClientUserAgent(agent string) ClientOption {
 	}
 }
 
+// WithClientCaching sets an HTTP cache for all created clients
+// using the provided cache implementation
+func WithClientCaching(cache func() httpcache.Cache) ClientOption {
+	return func(c *clientCreator) {
+		c.cacheFunc = cache
+	}
+}
+
 // WithClientMiddleware adds middleware that is applied to all created clients.
 func WithClientMiddleware(middleware ...ClientMiddleware) ClientOption {
 	return func(c *clientCreator) {
@@ -140,7 +150,7 @@ func WithClientMiddleware(middleware ...ClientMiddleware) ClientOption {
 }
 
 func (c *clientCreator) NewAppClient() (*github.Client, error) {
-	itr, err := ghinstallation.NewAppsTransport(http.DefaultTransport, c.integrationID, c.privKeyBytes)
+	itr, err := ghinstallation.NewAppsTransport(c.transport(), c.integrationID, c.privKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +171,7 @@ func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
 }
 
 func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Client, error) {
-	itr, err := ghinstallation.New(http.DefaultTransport, c.integrationID, int(installationID), c.privKeyBytes)
+	itr, err := ghinstallation.New(c.transport(), c.integrationID, int(installationID), c.privKeyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -221,6 +231,14 @@ func (c *clientCreator) newV4Client(base *http.Client, details string) (*githubv
 
 	client := githubv4.NewEnterpriseClient(v4BaseURL.String(), base)
 	return client, nil
+}
+
+func (c *clientCreator) transport() http.RoundTripper {
+	if c.cacheFunc != nil {
+		return httpcache.NewTransport(c.cacheFunc())
+	}
+
+	return http.DefaultTransport
 }
 
 func applyMiddleware(base *http.Client, middleware []ClientMiddleware) {

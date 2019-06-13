@@ -143,13 +143,13 @@ distinct clients:
 These are provided when calling `githubapp.NewClientCreator`:
 
 - `githubapp.WithClientUserAgent` sets a `User-Agent` string for all clients
+- `githubapp.WithClientCaching` sets an HTTP cache for all clients
 - `githubapp.WithClientMiddleware` allows customization of the
   `http.RoundTripper` used by all clients and is useful if you want to log
   requests or emit metrics about GitHub requests and responses.
 
 The library provides the following middleware:
 
-- `githubapp.ClientCaching` sets an HTTP cache
 - `githubapp.ClientMetrics` emits the standard metrics described below
 - `githubapp.ClientLogging` logs metadata about all requests and responses
 
@@ -157,8 +157,8 @@ The library provides the following middleware:
 baseHandler, err := githubapp.NewDefaultCachingClientCreator(
     config.Github,
     githubapp.WithClientUserAgent("example-app/1.0.0"),
+    githubapp.WithClientCaching(func() httpcache.Cache { return httpcache.NewMemoryCache() }),
     githubapp.WithClientMiddleware(
-        githubapp.ClientCaching(func() httpcache.Cache { return httpcache.NewMemoryCache() }),
         githubapp.ClientMetrics(registry),
         githubapp.ClientLogging(zerolog.DebugLevel),
     ),
@@ -179,7 +179,7 @@ middleware.
 | `github.requests.3xx` | `counter` | like `github.requests`, but only counting 3XX status codes |
 | `github.requests.4xx` | `counter` | like `github.requests`, but only counting 4XX status codes |
 | `github.requests.5xx` | `counter` | like `github.requests`, but only counting 5XX status codes |
-| `github.requests.cached` | `counter` | the count of cached HTTP requess |
+| `github.requests.cached` | `counter` | the count of cached HTTP requests |
 
 Note that metrics need to be published in order to be useful. Several
 [publishing options][] are available or you can implement your own.

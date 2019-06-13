@@ -118,16 +118,6 @@ func ClientLogging(lvl zerolog.Level) ClientMiddleware {
 	}
 }
 
-// ClientCaching creates client middleware that caches http responses
-// using the provided cache implementation
-func ClientCaching(cache func() httpcache.Cache) ClientMiddleware {
-	return func(next http.RoundTripper) http.RoundTripper {
-		cached := httpcache.NewTransport(cache())
-		cached.Transport = next
-		return cached
-	}
-}
-
 type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (fn roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
