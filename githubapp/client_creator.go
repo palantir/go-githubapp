@@ -157,13 +157,27 @@ func WithClientMiddleware(middleware ...ClientMiddleware) ClientOption {
 }
 
 func (c *clientCreator) NewAppClient() (*github.Client, error) {
-	itr, err := ghinstallation.NewAppsTransport(c.transport(), c.integrationID, c.privKeyBytes)
-	if err != nil {
-		return nil, err
+	base := &http.Client{
+		Transport: http.DefaultTransport,
 	}
 
-	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
-	return c.newClient(&http.Client{Transport: itr}, "application")
+	installation := func(next http.RoundTripper) http.RoundTripper {
+		itr, err := ghinstallation.NewAppsTransport(next, c.integrationID, c.privKeyBytes)
+		if err != nil {
+			fmt.Println(err)
+			return nil
+		}
+		// leaving the v3 URL since this is used to refresh the token, not make queries
+		itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
+		fmt.Println(itr.BaseURL)
+		return itr
+	}
+
+	middleware := append(c.middleware, installation)
+	if c.cacheFunc != nil {
+		middleware = append(c.middleware, installation, cache(c.cacheFunc), cacheControl(c.cacheControlEnabled))
+	}
+	return c.newClient(base, middleware, "application")
 }
 
 func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
@@ -178,13 +192,26 @@ func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
 }
 
 func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Client, error) {
-	itr, err := ghinstallation.New(c.transport(), c.integrationID, int(installationID), c.privKeyBytes)
-	if err != nil {
-		return nil, err
+	base := &http.Client{
+		Transport: http.DefaultTransport,
 	}
 
-	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
-	return c.newClient(&http.Client{Transport: itr}, fmt.Sprintf("installation: %d", installationID))
+	installation := func(next http.RoundTripper) http.RoundTripper {
+		itr, err := ghinstallation.New(next, c.integrationID, int(installationID), c.privKeyBytes)
+		if err != nil {
+			fmt.Println(err)
+			return nil
+		}
+		// leaving the v3 URL since this is used to refresh the token, not make queries
+		itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
+		return itr
+	}
+
+	middleware := append(c.middleware, installation)
+	if c.cacheFunc != nil {
+		middleware = append(c.middleware, installation, cache(c.cacheFunc), cacheControl(c.cacheControlEnabled))
+	}
+	return c.newClient(base, middleware, fmt.Sprintf("installation: %d", installationID))
 }
 
 func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4.Client, error) {
@@ -201,7 +228,7 @@ func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4
 func (c *clientCreator) NewTokenClient(token string) (*github.Client, error) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(context.Background(), ts)
-	return c.newClient(tc, "oauth token")
+	return c.newClient(tc, c.middleware, "oauth token")
 }
 
 func (c *clientCreator) NewTokenV4Client(token string) (*githubv4.Client, error) {
@@ -210,8 +237,8 @@ func (c *clientCreator) NewTokenV4Client(token string) (*githubv4.Client, error)
 	return c.newV4Client(tc, "oauth token")
 }
 
-func (c *clientCreator) newClient(base *http.Client, details string) (*github.Client, error) {
-	applyMiddleware(base.Transport, c.middleware)
+func (c *clientCreator) newClient(base *http.Client, middleware []ClientMiddleware, details string) (*github.Client, error) {
+	applyMiddleware(base, middleware)
 
 	baseURL, err := url.Parse(c.v3BaseURL)
 	if err != nil {
@@ -229,7 +256,7 @@ func (c *clientCreator) newV4Client(base *http.Client, details string) (*githubv
 	ua := makeUserAgent(c.userAgent, details)
 
 	middleware := append([]ClientMiddleware{setUserAgentHeader(ua)}, c.middleware...)
-	applyMiddleware(base.Transport, middleware)
+	applyMiddleware(base, middleware)
 
 	v4BaseURL, err := url.Parse(c.v4BaseURL)
 	if err != nil {
@@ -240,17 +267,19 @@ func (c *clientCreator) newV4Client(base *http.Client, details string) (*githubv
 	return client, nil
 }
 
-func (c *clientCreator) transport() http.RoundTripper {
-	if c.cacheFunc != nil {
-		return cacheControl(c.cacheControlEnabled)(httpcache.NewTransport(c.cacheFunc()))
+func applyMiddleware(base *http.Client, middleware []ClientMiddleware) {
+	for i := len(middleware) - 1; i >= 0; i-- {
+		base.Transport = middleware[i](base.Transport)
 	}
-
-	return http.DefaultTransport
 }
 
-func applyMiddleware(base http.RoundTripper, middleware []ClientMiddleware) {
-	for i := len(middleware) - 1; i >= 0; i-- {
-		base = middleware[i](base)
+func cache(cacheFunc func() httpcache.Cache) ClientMiddleware {
+	return func(next http.RoundTripper) http.RoundTripper {
+		return &httpcache.Transport{
+			Transport:           next,
+			Cache:               cacheFunc(),
+			MarkCachedResponses: true,
+		}
 	}
 }
 
