@@ -44,7 +44,7 @@ func main() {
 	cc, err := githubapp.NewDefaultCachingClientCreator(
 		config.Github,
 		githubapp.WithClientUserAgent("example-app/1.0.0"),
-		githubapp.WithClientCaching(func() httpcache.Cache { return httpcache.NewMemoryCache() }),
+		githubapp.WithClientCaching(false, func() httpcache.Cache { return httpcache.NewMemoryCache() }),
 		githubapp.WithClientMiddleware(
 			githubapp.ClientMetrics(server.Registry()),
 		),
@@ -62,5 +62,8 @@ func main() {
 	server.Mux().Handle(pat.Post(githubapp.DefaultWebhookRoute), webhookHandler)
 
 	// Start is blocking
-	_ = server.Start()
+	err = server.Start()
+	if err != nil {
+		panic(err)
+	}
 }

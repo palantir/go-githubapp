@@ -115,13 +115,13 @@ func NewClientCreator(v3BaseURL, v4BaseURL string, integrationID int, privKeyByt
 }
 
 type clientCreator struct {
-	v3BaseURL     string
-	v4BaseURL     string
-	integrationID int
-	privKeyBytes  []byte
-	userAgent     string
-	middleware    []ClientMiddleware
-	cacheFunc     func() httpcache.Cache
+	v3BaseURL           string
+	v4BaseURL           string
+	integrationID       int
+	privKeyBytes        []byte
+	userAgent           string
+	middleware          []ClientMiddleware
+	cacheFunc           func() httpcache.Cache
 	cacheControlEnabled bool
 }
 
@@ -211,7 +211,7 @@ func (c *clientCreator) NewTokenV4Client(token string) (*githubv4.Client, error)
 }
 
 func (c *clientCreator) newClient(base *http.Client, details string) (*github.Client, error) {
-	applyMiddleware(base, c.middleware)
+	applyMiddleware(base.Transport, c.middleware)
 
 	baseURL, err := url.Parse(c.v3BaseURL)
 	if err != nil {
@@ -229,7 +229,7 @@ func (c *clientCreator) newV4Client(base *http.Client, details string) (*githubv
 	ua := makeUserAgent(c.userAgent, details)
 
 	middleware := append([]ClientMiddleware{setUserAgentHeader(ua)}, c.middleware...)
-	applyMiddleware(base, middleware)
+	applyMiddleware(base.Transport, middleware)
 
 	v4BaseURL, err := url.Parse(c.v4BaseURL)
 	if err != nil {
@@ -248,9 +248,9 @@ func (c *clientCreator) transport() http.RoundTripper {
 	return http.DefaultTransport
 }
 
-func applyMiddleware(base *http.Client, middleware []ClientMiddleware) {
+func applyMiddleware(base http.RoundTripper, middleware []ClientMiddleware) {
 	for i := len(middleware) - 1; i >= 0; i-- {
-		base.Transport = middleware[i](base.Transport)
+		base = middleware[i](base)
 	}
 }
 

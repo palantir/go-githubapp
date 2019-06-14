@@ -157,7 +157,7 @@ The library provides the following middleware:
 baseHandler, err := githubapp.NewDefaultCachingClientCreator(
     config.Github,
     githubapp.WithClientUserAgent("example-app/1.0.0"),
-    githubapp.WithClientCaching(func() httpcache.Cache { return httpcache.NewMemoryCache() }),
+    githubapp.WithClientCaching(false, func() httpcache.Cache { return httpcache.NewMemoryCache() }),
     githubapp.WithClientMiddleware(
         githubapp.ClientMetrics(registry),
         githubapp.ClientLogging(zerolog.DebugLevel),
