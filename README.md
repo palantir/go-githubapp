@@ -143,7 +143,9 @@ distinct clients:
 These are provided when calling `githubapp.NewClientCreator`:
 
 - `githubapp.WithClientUserAgent` sets a `User-Agent` string for all clients
-- `githubapp.WithClientCaching` sets an HTTP cache for all clients
+- `githubapp.WithClientCaching` sets an HTTP cache for all clients,
+  alwaysValidate is used to determine if the cached responses from
+  Github should be used or if all requests should be re-validated
 - `githubapp.WithClientMiddleware` allows customization of the
   `http.RoundTripper` used by all clients and is useful if you want to log
   requests or emit metrics about GitHub requests and responses.
@@ -157,6 +159,8 @@ The library provides the following middleware:
 baseHandler, err := githubapp.NewDefaultCachingClientCreator(
     config.Github,
     githubapp.WithClientUserAgent("example-app/1.0.0"),
+    // Cache responses from Github in memory, and disable cache validation
+    // to force Conditional Requests
     githubapp.WithClientCaching(false, func() httpcache.Cache { return httpcache.NewMemoryCache() }),
     githubapp.WithClientMiddleware(
         githubapp.ClientMetrics(registry),
@@ -179,6 +183,7 @@ middleware.
 | `github.requests.3xx` | `counter` | like `github.requests`, but only counting 3XX status codes |
 | `github.requests.4xx` | `counter` | like `github.requests`, but only counting 4XX status codes |
 | `github.requests.5xx` | `counter` | like `github.requests`, but only counting 5XX status codes |
+| `github.requests.cached` | `counter` | the count of successfully cached requests |
 
 Note that metrics need to be published in order to be useful. Several
 [publishing options][] are available or you can implement your own.

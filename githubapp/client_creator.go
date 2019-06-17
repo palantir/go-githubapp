@@ -115,14 +115,14 @@ func NewClientCreator(v3BaseURL, v4BaseURL string, integrationID int, privKeyByt
 }
 
 type clientCreator struct {
-	v3BaseURL           string
-	v4BaseURL           string
-	integrationID       int
-	privKeyBytes        []byte
-	userAgent           string
-	middleware          []ClientMiddleware
-	cacheFunc           func() httpcache.Cache
-	cacheControlEnabled bool
+	v3BaseURL      string
+	v4BaseURL      string
+	integrationID  int
+	privKeyBytes   []byte
+	userAgent      string
+	middleware     []ClientMiddleware
+	cacheFunc      func() httpcache.Cache
+	alwaysValidate bool
 }
 
 var _ ClientCreator = &clientCreator{}
@@ -142,10 +142,14 @@ func WithClientUserAgent(agent string) ClientOption {
 
 // WithClientCaching sets an HTTP cache for all created clients
 // using the provided cache implementation
-func WithClientCaching(cacheControlEnabled bool, cache func() httpcache.Cache) ClientOption {
+// alwaysValidate is used to determine
+// if the cached responses from Github should be used or
+// if all requests should instead be re-validated
+// https://developer.github.com/v3/#conditional-requests
+func WithClientCaching(alwaysValidate bool, cache func() httpcache.Cache) ClientOption {
 	return func(c *clientCreator) {
 		c.cacheFunc = cache
-		c.cacheControlEnabled = cacheControlEnabled
+		c.alwaysValidate = alwaysValidate
 	}
 }
 
@@ -157,72 +161,61 @@ func WithClientMiddleware(middleware ...ClientMiddleware) ClientOption {
 }
 
 func (c *clientCreator) NewAppClient() (*github.Client, error) {
-	base := &http.Client{
-		Transport: http.DefaultTransport,
-	}
+	base := &http.Client{Transport: http.DefaultTransport}
 
-	installation := func(next http.RoundTripper) http.RoundTripper {
-		itr, err := ghinstallation.NewAppsTransport(next, c.integrationID, c.privKeyBytes)
-		if err != nil {
-			fmt.Println(err)
-			return nil
-		}
-		// leaving the v3 URL since this is used to refresh the token, not make queries
-		itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
-		fmt.Println(itr.BaseURL)
-		return itr
+	installation, err := newAppInstallation(c.integrationID, c.privKeyBytes, c.v3BaseURL)
+	if err != nil {
+		return nil, err
 	}
 
 	middleware := append(c.middleware, installation)
 	if c.cacheFunc != nil {
-		middleware = append(c.middleware, installation, cache(c.cacheFunc), cacheControl(c.cacheControlEnabled))
+		middleware = append(c.middleware, installation, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
 	}
 	return c.newClient(base, middleware, "application")
 }
 
 func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
-	itr, err := ghinstallation.NewAppsTransport(http.DefaultTransport, c.integrationID, c.privKeyBytes)
+	base := &http.Client{Transport: http.DefaultTransport}
+
+	installation, err := newAppInstallation(c.integrationID, c.privKeyBytes, c.v3BaseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	// leaving the v3 URL since this is used to refresh the token, not make queries
-	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
-	return c.newV4Client(&http.Client{Transport: itr}, "application")
+	// The v4 API primarily uses POST requests (except for introspection queries)
+	// which we cannot cache, so don't construct the middleware
+	middleware := append(c.middleware, installation)
+	return c.newV4Client(base, middleware, "application")
 }
 
 func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Client, error) {
-	base := &http.Client{
-		Transport: http.DefaultTransport,
-	}
+	base := &http.Client{Transport: http.DefaultTransport}
 
-	installation := func(next http.RoundTripper) http.RoundTripper {
-		itr, err := ghinstallation.New(next, c.integrationID, int(installationID), c.privKeyBytes)
-		if err != nil {
-			fmt.Println(err)
-			return nil
-		}
-		// leaving the v3 URL since this is used to refresh the token, not make queries
-		itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
-		return itr
+	installation, err := newInstallation(c.integrationID, int(installationID), c.privKeyBytes, c.v3BaseURL)
+	if err != nil {
+		return nil, err
 	}
 
 	middleware := append(c.middleware, installation)
 	if c.cacheFunc != nil {
-		middleware = append(c.middleware, installation, cache(c.cacheFunc), cacheControl(c.cacheControlEnabled))
+		middleware = append(c.middleware, installation, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
 	}
 	return c.newClient(base, middleware, fmt.Sprintf("installation: %d", installationID))
 }
 
 func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4.Client, error) {
-	itr, err := ghinstallation.New(http.DefaultTransport, c.integrationID, int(installationID), c.privKeyBytes)
+	base := &http.Client{Transport: http.DefaultTransport}
+
+	installation, err := newInstallation(c.integrationID, int(installationID), c.privKeyBytes, c.v3BaseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	// leaving the v3 URL since this is used to refresh the token, not make queries
-	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
-	return c.newV4Client(&http.Client{Transport: itr}, fmt.Sprintf("installation: %d", installationID))
+	// The v4 API primarily uses POST requests (except for introspection queries)
+	// which we cannot cache, so don't construct the middleware
+	middleware := append(c.middleware, installation)
+	return c.newV4Client(base, middleware, fmt.Sprintf("installation: %d", installationID))
 }
 
 func (c *clientCreator) NewTokenClient(token string) (*github.Client, error) {
@@ -234,7 +227,7 @@ func (c *clientCreator) NewTokenClient(token string) (*github.Client, error) {
 func (c *clientCreator) NewTokenV4Client(token string) (*githubv4.Client, error) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(context.Background(), ts)
-	return c.newV4Client(tc, "oauth token")
+	return c.newV4Client(tc, c.middleware, "oauth token")
 }
 
 func (c *clientCreator) newClient(base *http.Client, middleware []ClientMiddleware, details string) (*github.Client, error) {
@@ -252,10 +245,10 @@ func (c *clientCreator) newClient(base *http.Client, middleware []ClientMiddlewa
 	return client, nil
 }
 
-func (c *clientCreator) newV4Client(base *http.Client, details string) (*githubv4.Client, error) {
+func (c *clientCreator) newV4Client(base *http.Client, middleware []ClientMiddleware, details string) (*githubv4.Client, error) {
 	ua := makeUserAgent(c.userAgent, details)
 
-	middleware := append([]ClientMiddleware{setUserAgentHeader(ua)}, c.middleware...)
+	middleware = append([]ClientMiddleware{setUserAgentHeader(ua)}, middleware...)
 	applyMiddleware(base, middleware)
 
 	v4BaseURL, err := url.Parse(c.v4BaseURL)
@@ -273,6 +266,42 @@ func applyMiddleware(base *http.Client, middleware []ClientMiddleware) {
 	}
 }
 
+func newAppInstallation(integrationID int, privKeyBytes []byte, v3BaseURL string) (ClientMiddleware, error) {
+	var transportError error
+	installation := func(next http.RoundTripper) http.RoundTripper {
+		itr, err := ghinstallation.NewAppsTransport(next, integrationID, privKeyBytes)
+		if err != nil {
+			transportError = err
+			return next
+		}
+		// leaving the v3 URL since this is used to refresh the token, not make queries
+		itr.BaseURL = strings.TrimSuffix(v3BaseURL, "/")
+		return itr
+	}
+	if transportError != nil {
+		return nil, transportError
+	}
+	return installation, nil
+}
+
+func newInstallation(integrationID, installationID int, privKeyBytes []byte, v3BaseURL string) (ClientMiddleware, error) {
+	var transportError error
+	installation := func(next http.RoundTripper) http.RoundTripper {
+		itr, err := ghinstallation.New(next, integrationID, installationID, privKeyBytes)
+		if err != nil {
+			transportError = err
+			return next
+		}
+		// leaving the v3 URL since this is used to refresh the token, not make queries
+		itr.BaseURL = strings.TrimSuffix(v3BaseURL, "/")
+		return itr
+	}
+	if transportError != nil {
+		return nil, transportError
+	}
+	return installation, nil
+}
+
 func cache(cacheFunc func() httpcache.Cache) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return &httpcache.Transport{
@@ -283,16 +312,19 @@ func cache(cacheFunc func() httpcache.Cache) ClientMiddleware {
 	}
 }
 
-func cacheControl(enabled bool) ClientMiddleware {
+func cacheControl(alwaysValidate bool) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
+		if alwaysValidate {
+			return next
+		}
 		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 			resp, err := next.RoundTrip(r)
 
 			// Force validation to occur when the cache is disabled by setting max-age=0,
 			// as the cache results will always appear as stale
-			if !enabled {
-				cacheControl := resp.Header.Get("Cache-Control")
-				newCacheControl := maxAgeRegex.ReplaceAll([]byte(cacheControl), []byte("max-age=0"))
+			cacheControl := resp.Header.Get("Cache-Control")
+			if cacheControl != "" {
+				newCacheControl := maxAgeRegex.ReplaceAllString(cacheControl, "max-age=0")
 				resp.Header.Set("Cache-Control", string(newCacheControl))
 			}
 			return resp, err
