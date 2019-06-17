@@ -325,7 +325,7 @@ func cacheControl(alwaysValidate bool) ClientMiddleware {
 			cacheControl := resp.Header.Get("Cache-Control")
 			if cacheControl != "" {
 				newCacheControl := maxAgeRegex.ReplaceAllString(cacheControl, "max-age=0")
-				resp.Header.Set("Cache-Control", string(newCacheControl))
+				resp.Header.Set("Cache-Control", newCacheControl)
 			}
 			return resp, err
 		})
