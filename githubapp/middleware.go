@@ -16,6 +16,7 @@ package githubapp
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/rcrowley/go-metrics"
@@ -28,6 +29,9 @@ const (
 	MetricsKeyRequests3xx = "github.requests.3xx"
 	MetricsKeyRequests4xx = "github.requests.4xx"
 	MetricsKeyRequests5xx = "github.requests.5xx"
+
+	MetricsKeyRateLimit          = "github.rate.limit"
+	MetricsKeyRateLimitRemaining = "github.rate.remaining"
 )
 
 // ClientMetrics creates client middleware that records metrics about all
@@ -45,6 +49,15 @@ func ClientMetrics(registry metrics.Registry) ClientMiddleware {
 		metrics.GetOrRegisterCounter(key, registry)
 	}
 
+	for _, key := range []string{
+		MetricsKeyRateLimit,
+		MetricsKeyRateLimitRemaining,
+	} {
+		// Use GetOrRegister for thread-safety when creating multiple
+		// RoundTrippers that share the same registry
+		metrics.GetOrRegisterGauge(key, registry)
+	}
+
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 			res, err := next.RoundTrip(r)
@@ -54,10 +67,24 @@ func ClientMetrics(registry metrics.Registry) ClientMiddleware {
 				if key := bucketStatus(res.StatusCode); key != "" {
 					registry.Get(key).(metrics.Counter).Inc(1)
 				}
+
+				// From https://developer.github.com/v3/#rate-limiting
+				updateRegistryForHeader(res.Header, "X-RateLimit-Limit", registry.Get(MetricsKeyRateLimit).(metrics.Gauge))
+				updateRegistryForHeader(res.Header, "X-RateLimit-Remaining", registry.Get(MetricsKeyRateLimitRemaining).(metrics.Gauge))
 			}
 
 			return res, err
 		})
+	}
+}
+
+func updateRegistryForHeader(headers http.Header, header string, metric metrics.Gauge) {
+	headerString := headers.Get(header)
+	if headerString != "" {
+		headerVal, err := strconv.ParseInt(headerString, 10, 64)
+		if err == nil {
+			metric.Update(headerVal)
+		}
 	}
 }
 

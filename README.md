@@ -177,6 +177,8 @@ middleware.
 | `github.requests.3xx` | `counter` | like `github.requests`, but only counting 3XX status codes |
 | `github.requests.4xx` | `counter` | like `github.requests`, but only counting 4XX status codes |
 | `github.requests.5xx` | `counter` | like `github.requests`, but only counting 5XX status codes |
+| `github.rate.limit` | `gauge` | the maximum number of requests permitted to make per hour |
+| `github.rate.remaining` | `gauge` | the number of requests remaining in the current rate limit window |
 
 Note that metrics need to be published in order to be useful. Several
 [publishing options][] are available or you can implement your own.
