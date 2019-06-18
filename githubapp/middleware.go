@@ -15,6 +15,7 @@
 package githubapp
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -49,17 +50,14 @@ func ClientMetrics(registry metrics.Registry) ClientMiddleware {
 		metrics.GetOrRegisterCounter(key, registry)
 	}
 
-	for _, key := range []string{
-		MetricsKeyRateLimit,
-		MetricsKeyRateLimitRemaining,
-	} {
-		// Use GetOrRegister for thread-safety when creating multiple
-		// RoundTrippers that share the same registry
-		metrics.GetOrRegisterGauge(key, registry)
-	}
-
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			installationID := r.Header.Get(XInstallationIDHeader)
+			installationIDVal := int64(0)
+			if installationID != "" {
+				installationIDVal, _ = strconv.ParseInt(installationID, 10, 64)
+			}
+
 			res, err := next.RoundTrip(r)
 
 			if res != nil {
@@ -68,9 +66,12 @@ func ClientMetrics(registry metrics.Registry) ClientMiddleware {
 					registry.Get(key).(metrics.Counter).Inc(1)
 				}
 
-				// From https://developer.github.com/v3/#rate-limiting
-				updateRegistryForHeader(res.Header, "X-RateLimit-Limit", registry.Get(MetricsKeyRateLimit).(metrics.Gauge))
-				updateRegistryForHeader(res.Header, "X-RateLimit-Remaining", registry.Get(MetricsKeyRateLimitRemaining).(metrics.Gauge))
+				limitMetric := fmt.Sprintf("%s[installation:%d]", MetricsKeyRateLimit, installationIDVal)
+				remainingMetric := fmt.Sprintf("%s[installation:%d]", MetricsKeyRateLimitRemaining, installationIDVal)
+
+				// Headers from https://developer.github.com/v3/#rate-limiting
+				updateRegistryForHeader(res.Header, "X-RateLimit-Limit", metrics.GetOrRegisterGauge(limitMetric, registry))
+				updateRegistryForHeader(res.Header, "X-RateLimit-Remaining", metrics.GetOrRegisterGauge(remainingMetric, registry))
 			}
 
 			return res, err

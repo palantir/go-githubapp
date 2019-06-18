@@ -84,6 +84,10 @@ type ClientCreator interface {
 	NewTokenV4Client(token string) (*githubv4.Client, error)
 }
 
+var (
+	XInstallationIDHeader = "X-Installation-ID"
+)
+
 // NewClientCreator returns a ClientCreator that creates a GitHub client for
 // installations of the app specified by the provided arguments.
 func NewClientCreator(v3BaseURL, v4BaseURL string, integrationID int, privKeyBytes []byte, opts ...ClientOption) ClientCreator {
@@ -146,7 +150,7 @@ func (c *clientCreator) NewAppClient() (*github.Client, error) {
 	}
 
 	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
-	return c.newClient(&http.Client{Transport: itr}, "application")
+	return c.newClient(&http.Client{Transport: itr}, "application", 0)
 }
 
 func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
@@ -157,7 +161,7 @@ func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
 
 	// leaving the v3 URL since this is used to refresh the token, not make queries
 	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
-	return c.newV4Client(&http.Client{Transport: itr}, "application")
+	return c.newV4Client(&http.Client{Transport: itr}, "application", 0)
 }
 
 func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Client, error) {
@@ -167,7 +171,7 @@ func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Cli
 	}
 
 	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
-	return c.newClient(&http.Client{Transport: itr}, fmt.Sprintf("installation: %d", installationID))
+	return c.newClient(&http.Client{Transport: itr}, fmt.Sprintf("installation: %d", installationID), installationID)
 }
 
 func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4.Client, error) {
@@ -178,23 +182,24 @@ func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4
 
 	// leaving the v3 URL since this is used to refresh the token, not make queries
 	itr.BaseURL = strings.TrimSuffix(c.v3BaseURL, "/")
-	return c.newV4Client(&http.Client{Transport: itr}, fmt.Sprintf("installation: %d", installationID))
+	return c.newV4Client(&http.Client{Transport: itr}, fmt.Sprintf("installation: %d", installationID), installationID)
 }
 
 func (c *clientCreator) NewTokenClient(token string) (*github.Client, error) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(context.Background(), ts)
-	return c.newClient(tc, "oauth token")
+	return c.newClient(tc, "oauth token", 0)
 }
 
 func (c *clientCreator) NewTokenV4Client(token string) (*githubv4.Client, error) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(context.Background(), ts)
-	return c.newV4Client(tc, "oauth token")
+	return c.newV4Client(tc, "oauth token", 0)
 }
 
-func (c *clientCreator) newClient(base *http.Client, details string) (*github.Client, error) {
-	applyMiddleware(base, c.middleware)
+func (c *clientCreator) newClient(base *http.Client, details string, installID int64) (*github.Client, error) {
+	middleware := append([]ClientMiddleware{setInstallationIDHeader(installID)}, c.middleware...)
+	applyMiddleware(base, middleware)
 
 	baseURL, err := url.Parse(c.v3BaseURL)
 	if err != nil {
@@ -208,10 +213,10 @@ func (c *clientCreator) newClient(base *http.Client, details string) (*github.Cl
 	return client, nil
 }
 
-func (c *clientCreator) newV4Client(base *http.Client, details string) (*githubv4.Client, error) {
+func (c *clientCreator) newV4Client(base *http.Client, details string, installID int64) (*githubv4.Client, error) {
 	ua := makeUserAgent(c.userAgent, details)
 
-	middleware := append([]ClientMiddleware{setUserAgentHeader(ua)}, c.middleware...)
+	middleware := append([]ClientMiddleware{setUserAgentHeader(ua), setInstallationIDHeader(installID)}, c.middleware...)
 	applyMiddleware(base, middleware)
 
 	v4BaseURL, err := url.Parse(c.v4BaseURL)
@@ -234,6 +239,15 @@ func makeUserAgent(base, details string) string {
 		base = "github-base-app/undefined"
 	}
 	return fmt.Sprintf("%s (%s)", base, details)
+}
+
+func setInstallationIDHeader(installationID int64) ClientMiddleware {
+	return func(next http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			r.Header.Set(XInstallationIDHeader, fmt.Sprintf("%d", installationID))
+			return next.RoundTrip(r)
+		})
+	}
 }
 
 func setUserAgentHeader(agent string) ClientMiddleware {
