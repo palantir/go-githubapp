@@ -129,7 +129,7 @@ var _ ClientCreator = &clientCreator{}
 
 type ClientOption func(c *clientCreator)
 
-// ClientMiddleware modifes the transport of a GitHub client to add common
+// ClientMiddleware modifies the transport of a GitHub client to add common
 // functionality, like logging or metrics collection.
 type ClientMiddleware func(http.RoundTripper) http.RoundTripper
 
@@ -142,9 +142,8 @@ func WithClientUserAgent(agent string) ClientOption {
 
 // WithClientCaching sets an HTTP cache for all created clients
 // using the provided cache implementation
-// alwaysValidate is used to determine
-// if the cached responses from Github should be used or
-// if all requests should instead be re-validated
+// If alwaysValidate is true, the cache validates all saved responses before returning them.
+// Otherwise, it respects the caching headers returned by GitHub.
 // https://developer.github.com/v3/#conditional-requests
 func WithClientCaching(alwaysValidate bool, cache func() httpcache.Cache) ClientOption {
 	return func(c *clientCreator) {
@@ -163,59 +162,77 @@ func WithClientMiddleware(middleware ...ClientMiddleware) ClientOption {
 func (c *clientCreator) NewAppClient() (*github.Client, error) {
 	base := &http.Client{Transport: http.DefaultTransport}
 
-	installation, err := newAppInstallation(c.integrationID, c.privKeyBytes, c.v3BaseURL)
+	installation, transportError := newAppInstallation(c.integrationID, c.privKeyBytes, c.v3BaseURL)
+	middleware := append(c.middleware, installation)
+	if c.cacheFunc != nil {
+		middleware = append(c.middleware, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
+	}
+
+	client, err := c.newClient(base, middleware, "application")
 	if err != nil {
 		return nil, err
 	}
-
-	middleware := append(c.middleware, installation)
-	if c.cacheFunc != nil {
-		middleware = append(c.middleware, installation, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
+	if transportError != nil {
+		return nil, transportError
 	}
-	return c.newClient(base, middleware, "application")
+	return client, nil
 }
 
 func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
 	base := &http.Client{Transport: http.DefaultTransport}
 
-	installation, err := newAppInstallation(c.integrationID, c.privKeyBytes, c.v3BaseURL)
-	if err != nil {
-		return nil, err
-	}
+	installation, transportError := newAppInstallation(c.integrationID, c.privKeyBytes, c.v3BaseURL)
 
 	// The v4 API primarily uses POST requests (except for introspection queries)
 	// which we cannot cache, so don't construct the middleware
 	middleware := append(c.middleware, installation)
-	return c.newV4Client(base, middleware, "application")
+
+	client, err := c.newV4Client(base, middleware, "application")
+	if err != nil {
+		return nil, err
+	}
+	if transportError != nil {
+		return nil, transportError
+	}
+	return client, nil
 }
 
 func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Client, error) {
 	base := &http.Client{Transport: http.DefaultTransport}
 
-	installation, err := newInstallation(c.integrationID, int(installationID), c.privKeyBytes, c.v3BaseURL)
+	installation, transportError := newInstallation(c.integrationID, int(installationID), c.privKeyBytes, c.v3BaseURL)
+	middleware := append(c.middleware, installation)
+	if c.cacheFunc != nil {
+		middleware = append(c.middleware, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
+	}
+
+	client, err := c.newClient(base, middleware, fmt.Sprintf("installation: %d", installationID))
 	if err != nil {
 		return nil, err
 	}
-
-	middleware := append(c.middleware, installation)
-	if c.cacheFunc != nil {
-		middleware = append(c.middleware, installation, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
+	if transportError != nil {
+		return nil, transportError
 	}
-	return c.newClient(base, middleware, fmt.Sprintf("installation: %d", installationID))
+	return client, nil
 }
 
 func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4.Client, error) {
 	base := &http.Client{Transport: http.DefaultTransport}
 
-	installation, err := newInstallation(c.integrationID, int(installationID), c.privKeyBytes, c.v3BaseURL)
-	if err != nil {
-		return nil, err
-	}
+	installation, transportError := newInstallation(c.integrationID, int(installationID), c.privKeyBytes, c.v3BaseURL)
 
 	// The v4 API primarily uses POST requests (except for introspection queries)
 	// which we cannot cache, so don't construct the middleware
 	middleware := append(c.middleware, installation)
-	return c.newV4Client(base, middleware, fmt.Sprintf("installation: %d", installationID))
+
+	client, err := c.newV4Client(base, middleware, fmt.Sprintf("installation: %d", installationID))
+	if err != nil {
+		return nil, err
+	}
+	if transportError != nil {
+		return nil, transportError
+	}
+	return client, nil
 }
 
 func (c *clientCreator) NewTokenClient(token string) (*github.Client, error) {
@@ -278,10 +295,7 @@ func newAppInstallation(integrationID int, privKeyBytes []byte, v3BaseURL string
 		itr.BaseURL = strings.TrimSuffix(v3BaseURL, "/")
 		return itr
 	}
-	if transportError != nil {
-		return nil, transportError
-	}
-	return installation, nil
+	return installation, transportError
 }
 
 func newInstallation(integrationID, installationID int, privKeyBytes []byte, v3BaseURL string) (ClientMiddleware, error) {
@@ -296,10 +310,7 @@ func newInstallation(integrationID, installationID int, privKeyBytes []byte, v3B
 		itr.BaseURL = strings.TrimSuffix(v3BaseURL, "/")
 		return itr
 	}
-	if transportError != nil {
-		return nil, transportError
-	}
-	return installation, nil
+	return installation, transportError
 }
 
 func cache(cacheFunc func() httpcache.Cache) ClientMiddleware {
@@ -314,7 +325,7 @@ func cache(cacheFunc func() httpcache.Cache) ClientMiddleware {
 
 func cacheControl(alwaysValidate bool) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
-		if alwaysValidate {
+		if !alwaysValidate {
 			return next
 		}
 		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
