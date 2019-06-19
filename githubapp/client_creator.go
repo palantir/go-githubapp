@@ -198,7 +198,7 @@ func (c *clientCreator) NewTokenV4Client(token string) (*githubv4.Client, error)
 }
 
 func (c *clientCreator) newClient(base *http.Client, details string, installID int64) (*github.Client, error) {
-	middleware := append([]ClientMiddleware{setInstallationIDHeader(installID)}, c.middleware...)
+	middleware := append([]ClientMiddleware{setInstallationID(installID)}, c.middleware...)
 	applyMiddleware(base, middleware)
 
 	baseURL, err := url.Parse(c.v3BaseURL)
@@ -241,7 +241,7 @@ func makeUserAgent(base, details string) string {
 	return fmt.Sprintf("%s (%s)", base, details)
 }
 
-func setInstallationIDHeader(installationID int64) ClientMiddleware {
+func setInstallationID(installationID int64) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
 			r = r.WithContext(context.WithValue(r.Context(), installationKey, installationID))
