@@ -52,10 +52,9 @@ func ClientMetrics(registry metrics.Registry) ClientMiddleware {
 
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-			installationID := r.Header.Get(XInstallationIDHeader)
-			installationIDVal := int64(0)
-			if installationID != "" {
-				installationIDVal, _ = strconv.ParseInt(installationID, 10, 64)
+			installationID, ok := r.Context().Value(installationKey).(int64)
+			if !ok {
+				installationID = 0
 			}
 
 			res, err := next.RoundTrip(r)
@@ -66,8 +65,8 @@ func ClientMetrics(registry metrics.Registry) ClientMiddleware {
 					registry.Get(key).(metrics.Counter).Inc(1)
 				}
 
-				limitMetric := fmt.Sprintf("%s[installation:%d]", MetricsKeyRateLimit, installationIDVal)
-				remainingMetric := fmt.Sprintf("%s[installation:%d]", MetricsKeyRateLimitRemaining, installationIDVal)
+				limitMetric := fmt.Sprintf("%s[installation:%d]", MetricsKeyRateLimit, installationID)
+				remainingMetric := fmt.Sprintf("%s[installation:%d]", MetricsKeyRateLimitRemaining, installationID)
 
 				// Headers from https://developer.github.com/v3/#rate-limiting
 				updateRegistryForHeader(res.Header, "X-RateLimit-Limit", metrics.GetOrRegisterGauge(limitMetric, registry))

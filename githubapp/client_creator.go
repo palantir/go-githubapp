@@ -84,9 +84,8 @@ type ClientCreator interface {
 	NewTokenV4Client(token string) (*githubv4.Client, error)
 }
 
-var (
-	XInstallationIDHeader = "X-Installation-ID"
-)
+type key string
+const installationKey = key("installationID")
 
 // NewClientCreator returns a ClientCreator that creates a GitHub client for
 // installations of the app specified by the provided arguments.
@@ -244,7 +243,7 @@ func makeUserAgent(base, details string) string {
 func setInstallationIDHeader(installationID int64) ClientMiddleware {
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-			r.Header.Set(XInstallationIDHeader, fmt.Sprintf("%d", installationID))
+			r = r.WithContext(context.WithValue(r.Context(), installationKey, installationID))
 			return next.RoundTrip(r)
 		})
 	}
