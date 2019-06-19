@@ -85,6 +85,7 @@ type ClientCreator interface {
 }
 
 type key string
+
 const installationKey = key("installationID")
 
 // NewClientCreator returns a ClientCreator that creates a GitHub client for
@@ -215,7 +216,7 @@ func (c *clientCreator) newClient(base *http.Client, details string, installID i
 func (c *clientCreator) newV4Client(base *http.Client, details string, installID int64) (*githubv4.Client, error) {
 	ua := makeUserAgent(c.userAgent, details)
 
-	middleware := append([]ClientMiddleware{setUserAgentHeader(ua), setInstallationIDHeader(installID)}, c.middleware...)
+	middleware := append([]ClientMiddleware{setUserAgentHeader(ua)}, c.middleware...)
 	applyMiddleware(base, middleware)
 
 	v4BaseURL, err := url.Parse(c.v4BaseURL)
