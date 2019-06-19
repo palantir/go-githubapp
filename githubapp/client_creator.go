@@ -172,8 +172,8 @@ func (c *clientCreator) NewAppClient() (*github.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	if transportError != nil {
-		return nil, transportError
+	if *transportError != nil {
+		return nil, *transportError
 	}
 	return client, nil
 }
@@ -191,8 +191,8 @@ func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	if transportError != nil {
-		return nil, transportError
+	if *transportError != nil {
+		return nil, *transportError
 	}
 	return client, nil
 }
@@ -210,8 +210,8 @@ func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Cli
 	if err != nil {
 		return nil, err
 	}
-	if transportError != nil {
-		return nil, transportError
+	if *transportError != nil {
+		return nil, *transportError
 	}
 	return client, nil
 }
@@ -229,8 +229,8 @@ func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4
 	if err != nil {
 		return nil, err
 	}
-	if transportError != nil {
-		return nil, transportError
+	if *transportError != nil {
+		return nil, *transportError
 	}
 	return client, nil
 }
@@ -283,7 +283,7 @@ func applyMiddleware(base *http.Client, middleware []ClientMiddleware) {
 	}
 }
 
-func newAppInstallation(integrationID int, privKeyBytes []byte, v3BaseURL string) (ClientMiddleware, error) {
+func newAppInstallation(integrationID int, privKeyBytes []byte, v3BaseURL string) (ClientMiddleware, *error) {
 	var transportError error
 	installation := func(next http.RoundTripper) http.RoundTripper {
 		itr, err := ghinstallation.NewAppsTransport(next, integrationID, privKeyBytes)
@@ -295,10 +295,10 @@ func newAppInstallation(integrationID int, privKeyBytes []byte, v3BaseURL string
 		itr.BaseURL = strings.TrimSuffix(v3BaseURL, "/")
 		return itr
 	}
-	return installation, transportError
+	return installation, &transportError
 }
 
-func newInstallation(integrationID, installationID int, privKeyBytes []byte, v3BaseURL string) (ClientMiddleware, error) {
+func newInstallation(integrationID, installationID int, privKeyBytes []byte, v3BaseURL string) (ClientMiddleware, *error) {
 	var transportError error
 	installation := func(next http.RoundTripper) http.RoundTripper {
 		itr, err := ghinstallation.New(next, integrationID, installationID, privKeyBytes)
@@ -310,7 +310,7 @@ func newInstallation(integrationID, installationID int, privKeyBytes []byte, v3B
 		itr.BaseURL = strings.TrimSuffix(v3BaseURL, "/")
 		return itr
 	}
-	return installation, transportError
+	return installation, &transportError
 }
 
 func cache(cacheFunc func() httpcache.Cache) ClientMiddleware {
