@@ -90,6 +90,10 @@ var (
 	maxAgeRegex = regexp.MustCompile(`max-age=\d+`)
 )
 
+type key string
+
+const installationKey = key("installationID")
+
 // NewClientCreator returns a ClientCreator that creates a GitHub client for
 // installations of the app specified by the provided arguments.
 func NewClientCreator(v3BaseURL, v4BaseURL string, integrationID int, privKeyBytes []byte, opts ...ClientOption) ClientCreator {
@@ -168,7 +172,7 @@ func (c *clientCreator) NewAppClient() (*github.Client, error) {
 		middleware = append(c.middleware, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
 	}
 
-	client, err := c.newClient(base, middleware, "application")
+	client, err := c.newClient(base, middleware, "application", 0)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +191,7 @@ func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
 	// which we cannot cache, so don't construct the middleware
 	middleware := append(c.middleware, installation)
 
-	client, err := c.newV4Client(base, middleware, "application")
+	client, err := c.newV4Client(base, middleware, "application", 0)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +210,7 @@ func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Cli
 		middleware = append(c.middleware, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
 	}
 
-	client, err := c.newClient(base, middleware, fmt.Sprintf("installation: %d", installationID))
+	client, err := c.newClient(base, middleware, fmt.Sprintf("installation: %d", installationID), installationID)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +229,7 @@ func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4
 	// which we cannot cache, so don't construct the middleware
 	middleware := append(c.middleware, installation)
 
-	client, err := c.newV4Client(base, middleware, fmt.Sprintf("installation: %d", installationID))
+	client, err := c.newV4Client(base, middleware, fmt.Sprintf("installation: %d", installationID), installationID)
 	if err != nil {
 		return nil, err
 	}
@@ -238,16 +242,17 @@ func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4
 func (c *clientCreator) NewTokenClient(token string) (*github.Client, error) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(context.Background(), ts)
-	return c.newClient(tc, c.middleware, "oauth token")
+	return c.newClient(tc, c.middleware, "oauth token", 0)
 }
 
 func (c *clientCreator) NewTokenV4Client(token string) (*githubv4.Client, error) {
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(context.Background(), ts)
-	return c.newV4Client(tc, c.middleware, "oauth token")
+	return c.newV4Client(tc, c.middleware, "oauth token", 0)
 }
 
-func (c *clientCreator) newClient(base *http.Client, middleware []ClientMiddleware, details string) (*github.Client, error) {
+func (c *clientCreator) newClient(base *http.Client, middleware []ClientMiddleware, details string, installID int64) (*github.Client, error) {
+	middleware = append(middleware, setInstallationID(installID))
 	applyMiddleware(base, middleware)
 
 	baseURL, err := url.Parse(c.v3BaseURL)
@@ -262,7 +267,7 @@ func (c *clientCreator) newClient(base *http.Client, middleware []ClientMiddlewa
 	return client, nil
 }
 
-func (c *clientCreator) newV4Client(base *http.Client, middleware []ClientMiddleware, details string) (*githubv4.Client, error) {
+func (c *clientCreator) newV4Client(base *http.Client, middleware []ClientMiddleware, details string, installID int64) (*githubv4.Client, error) {
 	ua := makeUserAgent(c.userAgent, details)
 
 	middleware = append([]ClientMiddleware{setUserAgentHeader(ua)}, middleware...)
@@ -348,6 +353,15 @@ func makeUserAgent(base, details string) string {
 		base = "github-base-app/undefined"
 	}
 	return fmt.Sprintf("%s (%s)", base, details)
+}
+
+func setInstallationID(installationID int64) ClientMiddleware {
+	return func(next http.RoundTripper) http.RoundTripper {
+		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+			r = r.WithContext(context.WithValue(r.Context(), installationKey, installationID))
+			return next.RoundTrip(r)
+		})
+	}
 }
 
 func setUserAgentHeader(agent string) ClientMiddleware {

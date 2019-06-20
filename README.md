@@ -183,6 +183,8 @@ middleware.
 | `github.requests.4xx` | `counter` | like `github.requests`, but only counting 4XX status codes |
 | `github.requests.5xx` | `counter` | like `github.requests`, but only counting 5XX status codes |
 | `github.requests.cached` | `counter` | the count of successfully cached requests |
+| `github.rate.limit[installation:<id>]` | `gauge` | the maximum number of requests permitted to make per hour, tagged with the installation id |
+| `github.rate.remaining[installation:<id>]` | `gauge` | the number of requests remaining in the current rate limit window, tagged with the installation id |
 
 Note that metrics need to be published in order to be useful. Several
 [publishing options][] are available or you can implement your own.
