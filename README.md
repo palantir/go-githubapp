@@ -143,6 +143,10 @@ distinct clients:
 These are provided when calling `githubapp.NewClientCreator`:
 
 - `githubapp.WithClientUserAgent` sets a `User-Agent` string for all clients
+- `githubapp.WithClientCaching` enables response caching for all v3 (REST) clients.
+   The cache can be configured to always validate responses or to respect
+   the cache headers returned by GitHub. Re-validation is useful if data
+   often changes faster than the requested cache duration.
 - `githubapp.WithClientMiddleware` allows customization of the
   `http.RoundTripper` used by all clients and is useful if you want to log
   requests or emit metrics about GitHub requests and responses.
@@ -156,6 +160,7 @@ The library provides the following middleware:
 baseHandler, err := githubapp.NewDefaultCachingClientCreator(
     config.Github,
     githubapp.WithClientUserAgent("example-app/1.0.0"),
+    githubapp.WithClientCaching(false, func() httpcache.Cache { return httpcache.NewMemoryCache() }),
     githubapp.WithClientMiddleware(
         githubapp.ClientMetrics(registry),
         githubapp.ClientLogging(zerolog.DebugLevel),
@@ -177,6 +182,7 @@ middleware.
 | `github.requests.3xx` | `counter` | like `github.requests`, but only counting 3XX status codes |
 | `github.requests.4xx` | `counter` | like `github.requests`, but only counting 4XX status codes |
 | `github.requests.5xx` | `counter` | like `github.requests`, but only counting 5XX status codes |
+| `github.requests.cached` | `counter` | the count of successfully cached requests |
 | `github.rate.limit[installation:<id>]` | `gauge` | the maximum number of requests permitted to make per hour, tagged with the installation id |
 | `github.rate.remaining[installation:<id>]` | `gauge` | the number of requests remaining in the current rate limit window, tagged with the installation id |
 

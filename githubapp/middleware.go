@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gregjones/httpcache"
 	"github.com/rcrowley/go-metrics"
 	"github.com/rs/zerolog"
 )
@@ -30,6 +31,8 @@ const (
 	MetricsKeyRequests3xx = "github.requests.3xx"
 	MetricsKeyRequests4xx = "github.requests.4xx"
 	MetricsKeyRequests5xx = "github.requests.5xx"
+
+	MetricsKeyRequestsCached = "github.requests.cached"
 
 	MetricsKeyRateLimit          = "github.rate.limit"
 	MetricsKeyRateLimitRemaining = "github.rate.remaining"
@@ -44,6 +47,7 @@ func ClientMetrics(registry metrics.Registry) ClientMiddleware {
 		MetricsKeyRequests3xx,
 		MetricsKeyRequests4xx,
 		MetricsKeyRequests5xx,
+		MetricsKeyRequestsCached,
 	} {
 		// Use GetOrRegister for thread-safety when creating multiple
 		// RoundTrippers that share the same registry
@@ -63,6 +67,10 @@ func ClientMetrics(registry metrics.Registry) ClientMiddleware {
 				registry.Get(MetricsKeyRequests).(metrics.Counter).Inc(1)
 				if key := bucketStatus(res.StatusCode); key != "" {
 					registry.Get(key).(metrics.Counter).Inc(1)
+				}
+
+				if res.Header.Get(httpcache.XFromCache) != "" {
+					registry.Get(MetricsKeyRequestsCached).(metrics.Counter).Inc(1)
 				}
 
 				limitMetric := fmt.Sprintf("%s[installation:%d]", MetricsKeyRateLimit, installationID)

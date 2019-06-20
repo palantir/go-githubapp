@@ -17,6 +17,7 @@ package main
 import (
 	"os"
 
+	"github.com/gregjones/httpcache"
 	"github.com/palantir/go-baseapp/baseapp"
 	"github.com/rs/zerolog"
 	"goji.io/pat"
@@ -43,6 +44,7 @@ func main() {
 	cc, err := githubapp.NewDefaultCachingClientCreator(
 		config.Github,
 		githubapp.WithClientUserAgent("example-app/1.0.0"),
+		githubapp.WithClientCaching(false, func() httpcache.Cache { return httpcache.NewMemoryCache() }),
 		githubapp.WithClientMiddleware(
 			githubapp.ClientMetrics(server.Registry()),
 		),
@@ -60,5 +62,8 @@ func main() {
 	server.Mux().Handle(pat.Post(githubapp.DefaultWebhookRoute), webhookHandler)
 
 	// Start is blocking
-	_ = server.Start()
+	err = server.Start()
+	if err != nil {
+		panic(err)
+	}
 }
