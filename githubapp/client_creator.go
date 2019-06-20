@@ -169,7 +169,7 @@ func (c *clientCreator) NewAppClient() (*github.Client, error) {
 	installation, transportError := newAppInstallation(c.integrationID, c.privKeyBytes, c.v3BaseURL)
 	middleware := append(c.middleware, installation)
 	if c.cacheFunc != nil {
-		middleware = append(c.middleware, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
+		middleware = append(middleware, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
 	}
 
 	client, err := c.newClient(base, middleware, "application", 0)
@@ -207,7 +207,7 @@ func (c *clientCreator) NewInstallationClient(installationID int64) (*github.Cli
 	installation, transportError := newInstallation(c.integrationID, int(installationID), c.privKeyBytes, c.v3BaseURL)
 	middleware := append(c.middleware, installation)
 	if c.cacheFunc != nil {
-		middleware = append(c.middleware, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
+		middleware = append(middleware, cache(c.cacheFunc), cacheControl(c.alwaysValidate))
 	}
 
 	client, err := c.newClient(base, middleware, fmt.Sprintf("installation: %d", installationID), installationID)
