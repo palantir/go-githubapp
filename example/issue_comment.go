@@ -69,7 +69,7 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 	body := event.GetComment().GetBody()
 
 	if author[len(author)-5:] == "[bot]" {
-		zerolog.Ctx(ctx).Debug().Msg("Issue comment was created by a bot")
+		logger.Debug().Err(err).Msg("Issue comment was created by a bot")
 		return nil
 	}
 
