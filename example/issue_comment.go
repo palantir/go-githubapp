@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
@@ -68,8 +69,8 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 	author := event.GetComment().GetUser().GetLogin()
 	body := event.GetComment().GetBody()
 
-	if author[len(author)-5:] == "[bot]" {
-		logger.Debug().Err(err).Msg("Issue comment was created by a bot")
+	if strings.HasSuffix(author, "[bot]") {
+		logger.Debug().Msg("Issue comment was created by a bot")
 		return nil
 	}
 
