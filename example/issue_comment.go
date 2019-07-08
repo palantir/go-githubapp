@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/go-github/github"
 	"github.com/pkg/errors"
@@ -65,16 +66,21 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 
 	repoOwner := repo.GetOwner().GetLogin()
 	repoName := repo.GetName()
-	author := event.GetComment().GetUser()
+	author := event.GetComment().GetUser().GetLogin()
 	body := event.GetComment().GetBody()
 
+	if strings.HasSuffix(author, "[bot]") {
+		logger.Debug().Msg("Issue comment was created by a bot")
+		return nil
+	}
+
 	logger.Debug().Msgf("Echoing comment on %s/%s#%d by %s", repoOwner, repoName, prNum, author)
-	msg := fmt.Sprintf("%s\n%s said\n```%s\n```\n", h.preamble, author, body)
-	prComment := github.PullRequestComment{
+	msg := fmt.Sprintf("%s\n%s said\n```\n%s\n```\n", h.preamble, author, body)
+	prComment := github.IssueComment{
 		Body: &msg,
 	}
 
-	if _, _, err := client.PullRequests.CreateComment(ctx, repoOwner, repoName, prNum, &prComment); err != nil {
+	if _, _, err := client.Issues.CreateComment(ctx, repoOwner, repoName, prNum, &prComment); err != nil {
 		logger.Error().Err(err).Msg("Failed to comment on pull request")
 	}
 
