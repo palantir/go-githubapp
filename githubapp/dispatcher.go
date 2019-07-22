@@ -121,6 +121,8 @@ func (d *eventDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	// initialize context for SetResponder/GetResponder
+	// we store a pointer in the context so that functions deeper in the call
+	// tree can modify the value without creating a new context
 	var responder func(http.ResponseWriter, *http.Request)
 	ctx = context.WithValue(ctx, responderKey{}, &responder)
 	r = r.WithContext(ctx)
