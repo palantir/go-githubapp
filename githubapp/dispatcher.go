@@ -16,6 +16,7 @@ package githubapp
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/google/go-github/github"
@@ -69,6 +70,18 @@ func WithResponseCallback(onResponse ResponseCallback) DispatcherOption {
 			d.onResponse = onResponse
 		}
 	}
+}
+
+// ValidationError is passed to error callbacks when the webhook payload fails
+// validation.
+type ValidationError struct {
+	EventType  string
+	DeliveryID string
+	Cause      error
+}
+
+func (ve ValidationError) Error() string {
+	return fmt.Sprintf("invalid event: %v", ve.Cause)
 }
 
 type eventDispatcher struct {
@@ -131,8 +144,11 @@ func (d *eventDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	deliveryID := r.Header.Get("X-GitHub-Delivery")
 
 	if eventType == "" {
-		// ACK payload that was received but won't be processed
-		w.WriteHeader(http.StatusAccepted)
+		d.onError(w, r, ValidationError{
+			EventType:  eventType,
+			DeliveryID: deliveryID,
+			Cause:      errors.New("missing event type"),
+		})
 		return
 	}
 
@@ -147,7 +163,11 @@ func (d *eventDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	payloadBytes, err := github.ValidatePayload(r, []byte(d.secret))
 	if err != nil {
-		d.onError(w, r, errors.Wrapf(err, "failed to validate webhook payload"))
+		d.onError(w, r, ValidationError{
+			EventType:  eventType,
+			DeliveryID: deliveryID,
+			Cause:      err,
+		})
 		return
 	}
 
@@ -166,6 +186,13 @@ func (d *eventDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // DefaultErrorCallback logs errors and responds with a 500 status code.
 func DefaultErrorCallback(w http.ResponseWriter, r *http.Request, err error) {
 	logger := zerolog.Ctx(r.Context())
+
+	if ve, ok := err.(ValidationError); ok {
+		logger.Warn().Err(ve.Cause).Msgf("Received invalid webhook headers or payload")
+		http.Error(w, "Invalid webhook headers or payload", http.StatusBadRequest)
+		return
+	}
+
 	logger.Error().Err(err).Msg("Unexpected error handling webhook request")
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
