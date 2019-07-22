@@ -251,6 +251,25 @@ secure `StateStore` implementation. `oauth2.SessionStateStore` is a good choice
 that uses [alexedwards/scs](https://github.com/alexedwards/scs) to store the
 state in a session.
 
+## Customizing Webhook Responses
+
+For most applications, the default responses should be sufficient: they use
+correct status codes and include enough information to match up GitHub delivery
+records with request logs. If your application has additional requirements for
+responses, two methods are provided for customization:
+
+- Error responses can be modified with a custom error callback. Use the
+  `WithErrorCallback` option when creating an event dispatcher.
+
+- Non-error responses can be modified with a custom response callback. Use the
+  `WithResponseCallback` option when creating an event dispatcher.
+
+- Individual hook responses can be modified by calling the `SetResponder`
+  function before the handler returns. Note that if you register a custom
+  response handler as described above, you must make it aware of handler-level
+  responders if you want to keep using `SetResponder`. See the default response
+  callback for an example of how to implement this.
+
 ## Stability and Versioning Guarantees
 
 While we've used this library to build multiple applications internally,
