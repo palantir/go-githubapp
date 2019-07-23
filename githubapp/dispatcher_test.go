@@ -38,6 +38,7 @@ func TestEventDispatcher(t *testing.T) {
 		Handler TestEventHandler
 		Options []DispatcherOption
 		Event   string
+		Invalid bool
 
 		ResponseCode int
 		ResponseBody string
@@ -65,7 +66,7 @@ func TestEventDispatcher(t *testing.T) {
 			ResponseCode: 200,
 			CallCount:    1,
 		},
-		"defaultErrorHandlerReturns500": {
+		"defaultErrorHandlerReturns500OnError": {
 			Handler: TestEventHandler{
 				Types: []string{"pull_request"},
 				Fn: func(ctx context.Context, eventType, deliveryID string, payload []byte) error {
@@ -76,6 +77,15 @@ func TestEventDispatcher(t *testing.T) {
 			ResponseCode: 500,
 			ResponseBody: "Internal Server Error\n",
 			CallCount:    1,
+		},
+		"defaultErrorHandlerReturns400OnInvalid": {
+			Handler: TestEventHandler{
+				Types: []string{"pull_request"},
+			},
+			Event:        "pull_request",
+			Invalid:      true,
+			ResponseCode: 400,
+			ResponseBody: "Invalid webhook headers or payload\n",
 		},
 		"callsCustomErrorCallback": {
 			Handler: TestEventHandler{
@@ -151,7 +161,7 @@ func TestEventDispatcher(t *testing.T) {
 			h := test.Handler
 			d := NewEventDispatcher([]EventHandler{&h}, testHookSecret, test.Options...)
 
-			req := newSignedRequest(test.Event, name)
+			req := newHookRequest(test.Event, name, !test.Invalid)
 			res := httptest.NewRecorder()
 			d.ServeHTTP(res, req)
 
@@ -181,7 +191,7 @@ func TestSetAndGetResponder(t *testing.T) {
 	})
 }
 
-func newSignedRequest(eventType, id string) *http.Request {
+func newHookRequest(eventType, id string, signed bool) *http.Request {
 	body := []byte(fmt.Sprintf(`{"type":"%s"}`, eventType))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/github/hook", bytes.NewReader(body))
@@ -189,9 +199,11 @@ func newSignedRequest(eventType, id string) *http.Request {
 	req.Header.Set("X-Github-Event", eventType)
 	req.Header.Set("X-Github-Delivery", id)
 
-	mac := hmac.New(sha1.New, []byte(testHookSecret))
-	mac.Write(body)
-	req.Header.Set("X-Hub-Signature", fmt.Sprintf("sha1=%x", mac.Sum(nil)))
+	if signed {
+		mac := hmac.New(sha1.New, []byte(testHookSecret))
+		mac.Write(body)
+		req.Header.Set("X-Hub-Signature", fmt.Sprintf("sha1=%x", mac.Sum(nil)))
+	}
 
 	log := zerolog.New(os.Stdout)
 	req = req.WithContext(log.WithContext(req.Context()))
