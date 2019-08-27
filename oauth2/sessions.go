@@ -49,6 +49,10 @@ func (s *SessionStateStore) VerifyState(r *http.Request, expected string) (bool,
 
 	state, err := sess.GetString(DefaultSessionKey)
 	if err != nil {
+		if len(expected) == 0 {
+			return true, nil
+		}
+
 		return false, err
 	}
 
