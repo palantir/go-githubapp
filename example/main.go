@@ -19,10 +19,9 @@ import (
 
 	"github.com/gregjones/httpcache"
 	"github.com/palantir/go-baseapp/baseapp"
+	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/rs/zerolog"
 	"goji.io/pat"
-
-	"github.com/palantir/go-githubapp/githubapp"
 )
 
 func main() {

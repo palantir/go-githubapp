@@ -1,66 +1,32 @@
-common:
-  godel-cache:
-    key: &godel-cache-key v1-godel-cache-{{ checksum "godelw" }}-{{ checksum "godel/config/godel.yml" }}
-    <<: &restore-godel-cache
-      restore_cache:
-        keys:
-          - *godel-cache-key
-    <<: &save-godel-cache
-      save_cache:
-        key: *godel-cache-key
-        paths:
-          - ~/.godel
+owner-repo: &owner-repo
+  owner-repo: palantir/go-githubapp
 
-  vendor-cache:
-    key: &vendor-cache-key v1-vendor-cache-{{ checksum "Gopkg.lock" }}
-    <<: &restore-vendor-cache
-      restore_cache:
-        keys:
-          - *vendor-cache-key
-    <<: &save-vendor-cache
-      save_cache:
-        key: *vendor-cache-key
-        paths:
-          - vendor
+excutor: &executor
+  executor:
+    name: go/darwin-linux-no-cgo
+    version: 1.14-java-11-t41
+    <<: *owner-repo
 
-  test-results:
-    dir: &results-dir /tmp/test-results
-    <<: &store-results
-      store_test_results:
-        path: *results-dir
-    <<: &store-artifacts
-      store_artifacts:
-        path: *results-dir
-        destination: test-results
+version: 2.1
 
-### Jobs ###
+orbs:
+  go: palantir/go@0.0.18
+  godel: palantir/godel@0.0.18
 
-version: 2
-jobs:
-  verify:
-    working_directory: /go/src/github.com/palantir/go-githubapp
-    environment:
-      TESTS_DIR: *results-dir
-    docker:
-      - image: circleci/golang:1.13.4-stretch
-    steps:
-      - checkout
-      - *restore-godel-cache
-      - run: ./godelw version
-      - *save-godel-cache
-      - *restore-vendor-cache
-      - run: ./godelw run-dep -- ensure -vendor-only
-      - *save-vendor-cache
-      - run: mkdir -p "${TESTS_DIR}"
-      - run: ./godelw verify --apply=false --junit-output="$TESTS_DIR/$CIRCLE_PROJECT_REPONAME-tests.xml"
-      - *store-results
-      - *store-artifacts
-
-### Workflows ###
+all-tags-filter: &all-tags-filter
+  filters:
+    tags:
+      only: /.*/
 
 workflows:
   version: 2
-  build:
+  verify-test:
     jobs:
-      - verify:
-          filters: { tags: { only: /.*/ } }
+      - godel/verify:
+          name: verify
+          <<: *executor
+          <<: *all-tags-filter
+      - godel/test:
+          name: test
+          <<: *executor
+          <<: *all-tags-filter

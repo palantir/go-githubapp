@@ -20,11 +20,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/go-github/github"
+	"github.com/google/go-github/v29/github"
+	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
-	"github.com/palantir/go-githubapp/githubapp"
 )
 
 type PRCommentHandler struct {
