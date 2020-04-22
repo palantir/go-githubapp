@@ -92,7 +92,7 @@ will miss out on the free built-in support.
 GitHub imposes timeouts on webhook delivery responses. If an application does
 not respond in time, GitHub closes the connection and marks the delivery as
 failed. `go-githubapp` optionally supports asynchronous dispatch to help solve
-this problem. When enabled, the event dispatch sends a response to GitHub after
+this problem. When enabled, the event dispatcher sends a response to GitHub after
 validating the payload and then runs the event handler in a separate goroutine.
 
 To enable, select an appropriate _scheduler_ and configure the event dispatcher
