@@ -72,7 +72,7 @@ func WithResponseCallback(onResponse ResponseCallback) DispatcherOption {
 	}
 }
 
-// WithScheduler set the scheduler used to process events. Setting a
+// WithScheduler sets the scheduler used to process events. Setting a
 // non-default scheduler can enable asynchronous processing. When a scheduler
 // is asynchronous, the dispatcher validatates event payloads, queues valid
 // events for handling, and then responds to GitHub without waiting for the
