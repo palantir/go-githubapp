@@ -153,10 +153,14 @@ func (s *scheduler) safeExecute(ctx context.Context, d Dispatch) {
 	}()
 
 	atomic.AddInt64(&s.activeWorkers, 1)
-	if s.deriver != nil {
-		ctx = s.deriver(ctx)
-	}
 	err = d.Execute(ctx)
+}
+
+func (s *scheduler) derive(ctx context.Context) context.Context {
+	if s.deriver == nil {
+		return ctx
+	}
+	return s.deriver(ctx)
 }
 
 // DefaultScheduler returns a scheduler that executes handlers in the go
@@ -191,7 +195,7 @@ type asyncScheduler struct {
 }
 
 func (s *asyncScheduler) Schedule(ctx context.Context, d Dispatch) error {
-	go s.safeExecute(ctx, d)
+	go s.safeExecute(s.derive(ctx), d)
 	return nil
 }
 
@@ -234,7 +238,7 @@ type queueScheduler struct {
 
 func (s *queueScheduler) Schedule(ctx context.Context, d Dispatch) error {
 	select {
-	case s.queue <- queueDispatch{ctx: ctx, d: d}:
+	case s.queue <- queueDispatch{ctx: s.derive(ctx), d: d}:
 	default:
 		return ErrCapacityExceeded
 	}
