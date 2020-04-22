@@ -10,6 +10,7 @@ logic of your application.
 * [Usage](#usage)
   + [Examples](#examples)
   + [Dependencies](#dependencies)
+* [Asynchronous Dispatch](#asynchronous-dispatch)
 * [Structured Logging](#structured-logging)
 * [GitHub Clients](#github-clients)
   + [Metrics](#metrics)
@@ -85,6 +86,38 @@ run:
 Logging and metrics are only active when they are configured (see below). This
 means you can add your own logging or metrics libraries without conflict, but
 will miss out on the free built-in support.
+
+## Asynchronous Dispatch
+
+GitHub imposes timeouts on webhook delivery responses. If an application does
+not respond in time, GitHub closes the connection and marks the delivery as
+failed. `go-githubapp` optionally supports asynchronous dispatch to help solve
+this problem. When enabled, the event dispatch sends a response to GitHub after
+validating the payload and then runs the event handler in a separate goroutine.
+
+To enable, select an appropriate _scheduler_ and configure the event dispatcher
+to use it:
+
+```go
+dispatcher := githubapp.NewEventDispatcher(handlers, secret, githubapp.WithScheduler(
+    githubapp.AsyncScheduler(),
+))
+```
+
+The following schedulers are included in the library:
+
+- `DefaultScheduler` - a synchronous scheduler that runs event handlers in
+  the current goroutine. This is the default mode.
+
+- `AsyncScheduler` - an asynchronous scheduler that handles each event in a
+  new goroutine. This is the simplest asynchronous option.
+
+- `QueueAsyncScheduler` - an asynchronous scheduler that queues events and
+  handles them with a fixed pool of worker goroutines. This is useful to limit
+  the amount of concurrent work.
+
+`AsyncScheduler` and `QueueAsyncScheduler` support several additional options
+and customizations; see the documentation for details.
 
 ## Structured Logging
 
@@ -185,6 +218,14 @@ middleware.
 | `github.requests.cached` | `counter` | the count of successfully cached requests |
 | `github.rate.limit[installation:<id>]` | `gauge` | the maximum number of requests permitted to make per hour, tagged with the installation id |
 | `github.rate.remaining[installation:<id>]` | `gauge` | the number of requests remaining in the current rate limit window, tagged with the installation id |
+
+If using [asynchronous dispatch][#asynchronous-dispatch] and the `githubapp.WithSchedulingMetrics` option
+is set, these metrics are emitted:
+
+| metric name | type | definition |
+| ----------- | ---- | ---------- |
+| `github.event.queue` | `gauge` | the number of queued unprocessed event |
+| `github.event.workers` | `gauge` | the number of workers actively processing events |
 
 Note that metrics need to be published in order to be useful. Several
 [publishing options][] are available or you can implement your own.
