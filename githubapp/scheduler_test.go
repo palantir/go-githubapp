@@ -45,8 +45,7 @@ func TestAsyncScheduler(t *testing.T) {
 		s := AsyncScheduler()
 		h := AsyncHandler{Called: make(chan bool, 1)}
 
-		if err := s.Schedule(Dispatch{
-			Ctx:     context.Background(),
+		if err := s.Schedule(context.Background(), Dispatch{
 			Handler: &h,
 		}); err != nil {
 			t.Fatalf("unexpected error scheduling dispatch: %v", err)
@@ -72,8 +71,7 @@ func TestAsyncScheduler(t *testing.T) {
 		s := AsyncScheduler(WithAsyncErrorCallback(cb))
 		h := AsyncHandler{Called: make(chan bool, 1), Error: errors.New("handler error")}
 
-		if err := s.Schedule(Dispatch{
-			Ctx:     context.Background(),
+		if err := s.Schedule(context.Background(), Dispatch{
 			Handler: &h,
 		}); err != nil {
 			t.Fatalf("unexpected error scheduling dispatch: %v", err)
@@ -98,8 +96,7 @@ func TestQueueAsyncScheduler(t *testing.T) {
 		s := QueueAsyncScheduler(1, 1)
 		h := AsyncHandler{Called: make(chan bool, 1)}
 
-		if err := s.Schedule(Dispatch{
-			Ctx:     context.Background(),
+		if err := s.Schedule(context.Background(), Dispatch{
 			Handler: &h,
 		}); err != nil {
 			t.Fatalf("unexpected error scheduling dispatch: %v", err)
@@ -125,8 +122,7 @@ func TestQueueAsyncScheduler(t *testing.T) {
 		s := QueueAsyncScheduler(1, 1, WithAsyncErrorCallback(cb))
 		h := AsyncHandler{Called: make(chan bool, 1), Error: errors.New("handler error")}
 
-		if err := s.Schedule(Dispatch{
-			Ctx:     context.Background(),
+		if err := s.Schedule(context.Background(), Dispatch{
 			Handler: &h,
 		}); err != nil {
 			t.Fatalf("unexpected error scheduling dispatch: %v", err)
@@ -146,15 +142,15 @@ func TestQueueAsyncScheduler(t *testing.T) {
 	t.Run("rejectEventsWhenFull", func(t *testing.T) {
 		s := QueueAsyncScheduler(1, 1)
 		h := AsyncHandler{Block: make(chan struct{}), Called: make(chan bool, 1)}
+		ctx := context.Background()
 		d := Dispatch{
-			Ctx:     context.Background(),
 			Handler: &h,
 		}
 
-		if err := s.Schedule(d); err != nil {
+		if err := s.Schedule(ctx, d); err != nil {
 			t.Fatalf("unexpected error scheduling first dispatch: %v", err)
 		}
-		if err := s.Schedule(d); err != ErrCapacityExceeded {
+		if err := s.Schedule(ctx, d); err != ErrCapacityExceeded {
 			t.Fatalf("expected ErrCapacityExceeded, but got: %v", err)
 		}
 	})

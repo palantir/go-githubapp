@@ -188,8 +188,7 @@ func (d *eventDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	handler, ok := d.handlerMap[eventType]
 	if ok {
-		if err := d.scheduler.Schedule(Dispatch{
-			Ctx:        ctx,
+		if err := d.scheduler.Schedule(ctx, Dispatch{
 			Handler:    handler,
 			EventType:  eventType,
 			DeliveryID: deliveryID,

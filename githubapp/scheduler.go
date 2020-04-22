@@ -36,7 +36,6 @@ var (
 // Dispatch is a webhook payload and the handler that handles it.
 type Dispatch struct {
 	Handler EventHandler
-	Ctx     context.Context
 
 	EventType  string
 	DeliveryID string
@@ -44,8 +43,8 @@ type Dispatch struct {
 }
 
 // Execute calls the Dispatch's handler with the stored arguments.
-func (d Dispatch) Execute() error {
-	return d.Handler.Handle(d.Ctx, d.EventType, d.DeliveryID, d.Payload)
+func (d Dispatch) Execute(ctx context.Context) error {
+	return d.Handler.Handle(ctx, d.EventType, d.DeliveryID, d.Payload)
 }
 
 // AsyncErrorCallback is called by an asynchronous scheduler when an event
@@ -85,7 +84,7 @@ func DefaultContextDeriver(ctx context.Context) context.Context {
 // Schedule may return ErrCapacityExceeded if it cannot schedule or queue new
 // events at the time of the call.
 type Scheduler interface {
-	Schedule(d Dispatch) error
+	Schedule(ctx context.Context, d Dispatch) error
 }
 
 // SchedulerOption configures properties of a scheduler.
@@ -123,16 +122,21 @@ func WithSchedulingMetrics(r metrics.Registry) SchedulerOption {
 	}
 }
 
+type queueDispatch struct {
+	ctx context.Context
+	d   Dispatch
+}
+
 // core functionality and options for (async) schedulers
 type scheduler struct {
 	onError AsyncErrorCallback
 	deriver ContextDeriver
 
 	activeWorkers int64
-	queue         chan Dispatch
+	queue         chan queueDispatch
 }
 
-func (s *scheduler) safeExecute(d Dispatch) {
+func (s *scheduler) safeExecute(ctx context.Context, d Dispatch) {
 	var err error
 	defer func() {
 		if r := recover(); r != nil {
@@ -143,16 +147,16 @@ func (s *scheduler) safeExecute(d Dispatch) {
 			}
 		}
 		if err != nil && s.onError != nil {
-			s.onError(d.Ctx, err)
+			s.onError(ctx, err)
 		}
 		atomic.AddInt64(&s.activeWorkers, -1)
 	}()
 
 	atomic.AddInt64(&s.activeWorkers, 1)
 	if s.deriver != nil {
-		d.Ctx = s.deriver(d.Ctx)
+		ctx = s.deriver(ctx)
 	}
-	err = d.Execute()
+	err = d.Execute(ctx)
 }
 
 // DefaultScheduler returns a scheduler that executes handlers in the go
@@ -163,8 +167,8 @@ func DefaultScheduler() Scheduler {
 
 type defaultScheduler struct{}
 
-func (s *defaultScheduler) Schedule(d Dispatch) error {
-	return d.Execute()
+func (s *defaultScheduler) Schedule(ctx context.Context, d Dispatch) error {
+	return d.Execute(ctx)
 }
 
 // AsyncScheduler returns a scheduler that executes handlers in new goroutines.
@@ -186,8 +190,8 @@ type asyncScheduler struct {
 	scheduler
 }
 
-func (s *asyncScheduler) Schedule(d Dispatch) error {
-	go s.safeExecute(d)
+func (s *asyncScheduler) Schedule(ctx context.Context, d Dispatch) error {
+	go s.safeExecute(ctx, d)
 	return nil
 }
 
@@ -206,7 +210,7 @@ func QueueAsyncScheduler(queueSize int, workers int, opts ...SchedulerOption) Sc
 		scheduler: scheduler{
 			deriver: DefaultContextDeriver,
 			onError: DefaultAsyncErrorCallback,
-			queue:   make(chan Dispatch, queueSize),
+			queue:   make(chan queueDispatch, queueSize),
 		},
 	}
 	for _, opt := range opts {
@@ -216,7 +220,7 @@ func QueueAsyncScheduler(queueSize int, workers int, opts ...SchedulerOption) Sc
 	for i := 0; i < workers; i++ {
 		go func() {
 			for d := range s.queue {
-				s.safeExecute(d)
+				s.safeExecute(d.ctx, d.d)
 			}
 		}()
 	}
@@ -228,9 +232,9 @@ type queueScheduler struct {
 	scheduler
 }
 
-func (s *queueScheduler) Schedule(d Dispatch) error {
+func (s *queueScheduler) Schedule(ctx context.Context, d Dispatch) error {
 	select {
-	case s.queue <- d:
+	case s.queue <- queueDispatch{ctx: ctx, d: d}:
 	default:
 		return ErrCapacityExceeded
 	}
