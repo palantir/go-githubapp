@@ -200,10 +200,10 @@ func (s *asyncScheduler) Schedule(ctx context.Context, d Dispatch) error {
 // the queue is full.
 func QueueAsyncScheduler(queueSize int, workers int, opts ...SchedulerOption) Scheduler {
 	if queueSize < 0 {
-		panic("NewQueueAsyncScheduler: queue size must be non-negative")
+		panic("QueueAsyncScheduler: queue size must be non-negative")
 	}
 	if workers < 1 {
-		panic("NewQueueAsyncScheduler: worker count must be positive")
+		panic("QueueAsyncScheduler: worker count must be positive")
 	}
 
 	s := &queueScheduler{
