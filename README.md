@@ -242,7 +242,7 @@ client_ to look up specific installations of the application and then construct
 an _installation client_ to make API calls:
 
 ```go
-func getOrganizationClient(cc githubapp.ClientCreator, org name) (*github.Client, error) {
+func getOrganizationClient(cc githubapp.ClientCreator, org string) (*github.Client, error) {
     // create a client to perform actions as the application
     appClient, err := cc.NewAppClient()
     if err != nil {
@@ -250,7 +250,7 @@ func getOrganizationClient(cc githubapp.ClientCreator, org name) (*github.Client
     }
 
     // look up the installation ID for a particular organization
-    installations := githubapp.NewInstallationsService(app)
+    installations := githubapp.NewInstallationsService(appClient)
     install := installations.GetByOwner(context.Background(), org)
 
     // create a client to perform actions on that specific organization
