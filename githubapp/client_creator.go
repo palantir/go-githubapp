@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/bradleyfalzon/ghinstallation"
 	"github.com/google/go-github/v32/github"
@@ -127,6 +128,7 @@ type clientCreator struct {
 	middleware     []ClientMiddleware
 	cacheFunc      func() httpcache.Cache
 	alwaysValidate bool
+	timeout        time.Duration
 }
 
 var _ ClientCreator = &clientCreator{}
@@ -250,7 +252,10 @@ func (c *clientCreator) NewTokenV4Client(token string) (*githubv4.Client, error)
 }
 
 func (c *clientCreator) newHttpClient() *http.Client {
-	return &http.Client{Transport: http.DefaultTransport}
+	return &http.Client{
+		Transport: http.DefaultTransport,
+		Timeout:   c.timeout,
+	}
 }
 
 func (c *clientCreator) newClient(base *http.Client, middleware []ClientMiddleware, details string, installID int64) (*github.Client, error) {
