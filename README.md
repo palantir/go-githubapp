@@ -176,6 +176,7 @@ distinct clients:
 These are provided when calling `githubapp.NewClientCreator`:
 
 - `githubapp.WithClientUserAgent` sets a `User-Agent` string for all clients
+- `githubapp.WithClientTimeout` sets a timeout for requests made by all clients
 - `githubapp.WithClientCaching` enables response caching for all v3 (REST) clients.
    The cache can be configured to always validate responses or to respect
    the cache headers returned by GitHub. Re-validation is useful if data
