@@ -158,8 +158,7 @@ func WithClientCaching(alwaysValidate bool, cache func() httpcache.Cache) Client
 	}
 }
 
-// WithClientTimeout sets the timeout on http.Client for all created clients. This will set a timeout
-// on all requests made by the client.
+// WithClientTimeout sets a request timeout for requests made by all created clients.
 func WithClientTimeout(timeout time.Duration) ClientOption {
 	return func(c *clientCreator) {
 		c.timeout = timeout
