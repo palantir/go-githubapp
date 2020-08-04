@@ -220,8 +220,8 @@ middleware.
 | `github.rate.limit[installation:<id>]` | `gauge` | the maximum number of requests permitted to make per hour, tagged with the installation id |
 | `github.rate.remaining[installation:<id>]` | `gauge` | the number of requests remaining in the current rate limit window, tagged with the installation id |
 
-If using [asynchronous dispatch](#asynchronous-dispatch) and the `githubapp.WithSchedulingMetrics` option
-is set, these metrics are emitted:
+When using [asynchronous dispatch](#asynchronous-dispatch), the
+`githubapp.WithSchedulingMetrics` option emits the following metrics:
 
 | metric name | type | definition |
 | ----------- | ---- | ---------- |
