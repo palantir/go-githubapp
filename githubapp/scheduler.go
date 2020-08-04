@@ -50,11 +50,21 @@ func (d Dispatch) Execute(ctx context.Context) error {
 // AsyncErrorCallback is called by an asynchronous scheduler when an event
 // handler returns an error. The error from the handler is passed directly as
 // the final argument.
-type AsyncErrorCallback func(ctx context.Context, err error)
+type AsyncErrorCallback func(ctx context.Context, d Dispatch, err error)
 
 // DefaultAsyncErrorCallback logs errors.
-func DefaultAsyncErrorCallback(ctx context.Context, err error) {
-	zerolog.Ctx(ctx).Error().Err(err).Msg("Unexpected error handling webhook")
+func DefaultAsyncErrorCallback(ctx context.Context, d Dispatch, err error) {
+	defaultAsyncErrorCallback(ctx, d, err)
+}
+
+var defaultAsyncErrorCallback = MetricsAsyncErrorCallback(nil)
+
+// MetricsAsyncErrorCallback logs errors and increments an error counter.
+func MetricsAsyncErrorCallback(reg metrics.Registry) AsyncErrorCallback {
+	return func(ctx context.Context, d Dispatch, err error) {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("Unexpected error handling webhook")
+		errorCounter(reg, d.EventType).Inc(1)
+	}
 }
 
 // ContextDeriver creates a new independent context from a request's context.
@@ -139,6 +149,7 @@ type scheduler struct {
 func (s *scheduler) safeExecute(ctx context.Context, d Dispatch) {
 	var err error
 	defer func() {
+		atomic.AddInt64(&s.activeWorkers, -1)
 		if r := recover(); r != nil {
 			if rerr, ok := r.(error); ok {
 				err = rerr
@@ -147,9 +158,8 @@ func (s *scheduler) safeExecute(ctx context.Context, d Dispatch) {
 			}
 		}
 		if err != nil && s.onError != nil {
-			s.onError(ctx, err)
+			s.onError(ctx, d, err)
 		}
-		atomic.AddInt64(&s.activeWorkers, -1)
 	}()
 
 	atomic.AddInt64(&s.activeWorkers, 1)

@@ -64,7 +64,7 @@ func TestAsyncScheduler(t *testing.T) {
 
 	t.Run("errorCallback", func(t *testing.T) {
 		errc := make(chan error, 1)
-		cb := func(ctx context.Context, err error) {
+		cb := func(ctx context.Context, d Dispatch, err error) {
 			errc <- err
 		}
 
@@ -115,7 +115,7 @@ func TestQueueAsyncScheduler(t *testing.T) {
 
 	t.Run("errorCallback", func(t *testing.T) {
 		errc := make(chan error, 1)
-		cb := func(ctx context.Context, err error) {
+		cb := func(ctx context.Context, d Dispatch, err error) {
 			errc <- err
 		}
 
