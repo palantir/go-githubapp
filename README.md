@@ -13,7 +13,7 @@ logic of your application.
 * [Asynchronous Dispatch](#asynchronous-dispatch)
 * [Structured Logging](#structured-logging)
 * [GitHub Clients](#github-clients)
-  + [Metrics](#metrics)
+* [Metrics](#metrics)
 * [Background Jobs and Multi-Organization Operations](#background-jobs-and-multi-organization-operations)
 * [OAuth2](#oauth2)
 * [Stability and Versioning Guarantees](#stability-and-versioning-guarantees)
@@ -203,7 +203,7 @@ baseHandler, err := githubapp.NewDefaultCachingClientCreator(
 )
 ```
 
-### Metrics
+## Metrics
 
 `go-githubapp` uses [rcrowley/go-metrics][] to provide metrics. GitHub clients
 emit the metrics below if configured with the `githubapp.ClientMetrics`
@@ -227,6 +227,8 @@ is set, these metrics are emitted:
 | ----------- | ---- | ---------- |
 | `github.event.queue` | `gauge` | the number of queued unprocessed event |
 | `github.event.workers` | `gauge` | the number of workers actively processing events |
+| `github.event.dropped` | `counter` | the number events dropped due to limited queue capacity |
+| `github.event.age` | `histogram` | the age (queue time) in milliseconds of events at processing time |
 
 Note that metrics need to be published in order to be useful. Several
 [publishing options][] are available or you can implement your own.
