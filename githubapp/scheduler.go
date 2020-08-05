@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rcrowley/go-metrics"
@@ -27,6 +28,14 @@ import (
 const (
 	MetricsKeyQueueLength   = "github.event.queued"
 	MetricsKeyActiveWorkers = "github.event.workers"
+	MetricsKeyEventAge      = "github.event.age"
+	MetricsKeyDroppedEvents = "github.event.dropped"
+)
+
+const (
+	// values from metrics.NewTimer, which match those used by UNIX load averages
+	histogramReservoirSize = 1028
+	histogramAlpha         = 0.015
 )
 
 var (
@@ -119,11 +128,16 @@ func WithSchedulingMetrics(r metrics.Registry) SchedulerOption {
 		metrics.NewRegisteredFunctionalGauge(MetricsKeyActiveWorkers, r, func() int64 {
 			return atomic.LoadInt64(&s.activeWorkers)
 		})
+
+		sample := metrics.NewExpDecaySample(histogramReservoirSize, histogramAlpha)
+		s.eventAge = metrics.NewRegisteredHistogram(MetricsKeyEventAge, r, sample)
+		s.dropped = metrics.NewRegisteredCounter(MetricsKeyDroppedEvents, r)
 	}
 }
 
 type queueDispatch struct {
 	ctx context.Context
+	t   time.Time
 	d   Dispatch
 }
 
@@ -134,6 +148,9 @@ type scheduler struct {
 
 	activeWorkers int64
 	queue         chan queueDispatch
+
+	eventAge metrics.Histogram
+	dropped  metrics.Counter
 }
 
 func (s *scheduler) safeExecute(ctx context.Context, d Dispatch) {
@@ -224,6 +241,9 @@ func QueueAsyncScheduler(queueSize int, workers int, opts ...SchedulerOption) Sc
 	for i := 0; i < workers; i++ {
 		go func() {
 			for d := range s.queue {
+				if s.eventAge != nil {
+					s.eventAge.Update(time.Since(d.t).Milliseconds())
+				}
 				s.safeExecute(d.ctx, d.d)
 			}
 		}()
@@ -238,8 +258,11 @@ type queueScheduler struct {
 
 func (s *queueScheduler) Schedule(ctx context.Context, d Dispatch) error {
 	select {
-	case s.queue <- queueDispatch{ctx: s.derive(ctx), d: d}:
+	case s.queue <- queueDispatch{ctx: s.derive(ctx), t: time.Now(), d: d}:
 	default:
+		if s.dropped != nil {
+			s.dropped.Inc(1)
+		}
 		return ErrCapacityExceeded
 	}
 	return nil
