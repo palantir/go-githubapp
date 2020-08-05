@@ -32,6 +32,12 @@ const (
 	MetricsKeyDroppedEvents = "github.event.dropped"
 )
 
+const (
+	// values from metrics.NewTimer, which match those used by UNIX load averages
+	histogramReservoirSize = 1028
+	histogramAlpha         = 0.015
+)
+
 var (
 	ErrCapacityExceeded = errors.New("scheduler: capacity exceeded")
 )
@@ -123,8 +129,8 @@ func WithSchedulingMetrics(r metrics.Registry) SchedulerOption {
 			return atomic.LoadInt64(&s.activeWorkers)
 		})
 
-		// use sample values from metrics.NewTimer which match those used by UNIX load averages
-		s.eventAge = metrics.NewRegisteredHistogram(MetricsKeyEventAge, r, metrics.NewExpDecaySample(1028, 0.015))
+		sample := metrics.NewExpDecaySample(histogramReservoirSize, histogramAlpha)
+		s.eventAge = metrics.NewRegisteredHistogram(MetricsKeyEventAge, r, sample)
 		s.dropped = metrics.NewRegisteredCounter(MetricsKeyDroppedEvents, r)
 	}
 }
