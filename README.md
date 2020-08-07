@@ -205,9 +205,11 @@ baseHandler, err := githubapp.NewDefaultCachingClientCreator(
 
 ## Metrics
 
-`go-githubapp` uses [rcrowley/go-metrics][] to provide metrics. GitHub clients
-emit the metrics below if configured with the `githubapp.ClientMetrics`
-middleware.
+`go-githubapp` uses [rcrowley/go-metrics][] to provide metrics. Metrics are
+optional and disabled by default.
+
+GitHub clients emit the following metrics when configured with the
+`githubapp.ClientMetrics` middleware:
 
 | metric name | type | definition |
 | ----------- | ---- | ---------- |
@@ -229,6 +231,13 @@ When using [asynchronous dispatch](#asynchronous-dispatch), the
 | `github.event.workers` | `gauge` | the number of workers actively processing events |
 | `github.event.dropped` | `counter` | the number events dropped due to limited queue capacity |
 | `github.event.age` | `histogram` | the age (queue time) in milliseconds of events at processing time |
+
+The `MetricsErrorCallback` and `MetricsAsyncErrorCallback` error callbacks for
+the event dispatcher and asynchronous schedulers emit the following metrics:
+
+| metric name | type | definition |
+| ----------- | ---- | ---------- |
+| `github.handler.error[event:<type>]` | `counter` | the number of processing errors, tagged with the GitHub event type |
 
 Note that metrics need to be published in order to be useful. Several
 [publishing options][] are available or you can implement your own.
