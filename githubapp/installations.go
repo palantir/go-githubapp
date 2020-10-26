@@ -55,7 +55,7 @@ type InstallationsService interface {
 	// the owner.
 	GetByOwner(ctx context.Context, owner string) (Installation, error)
 
-	// GetByRepository returns the installation for a repository
+	// GetByRepository returns the installation for a repository.
 	// It returns an InstallationNotFound error if no installation exists for
 	// the repository.
 	GetByRepository(ctx context.Context, owner string, repo string) (Installation, error)
