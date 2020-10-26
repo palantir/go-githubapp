@@ -134,10 +134,11 @@ func (i defaultInstallationsService) GetByRepository(ctx context.Context, owner,
 		return toInstallation(installation), nil
 	}
 
+	ownerRepo := fmt.Sprintf("%s/%s", owner, repo)
 	if isNotFound(err) {
-		return Installation{}, InstallationNotFound(fmt.Sprintf("%s/%s", owner, repo))
+		return Installation{}, InstallationNotFound(ownerRepo)
 	}
-	return Installation{}, errors.Wrapf(err, "failed to get installation for repository %q", owner)
+	return Installation{}, errors.Wrapf(err, "failed to get installation for repository %q", ownerRepo)
 }
 
 // InstallationNotFound is returned when no installation exists for a
