@@ -59,6 +59,11 @@ type InstallationsService interface {
 	// It returns an InstallationNotFound error if no installation exists for
 	// the repository.
 	GetByRepository(ctx context.Context, owner string, repo string) (Installation, error)
+
+	// GetByRepositoryID returns the installation for a repository id.
+	// It returns an InstallationNotFound error if no installation exists for
+	// the repository.
+	GetByRepositoryID(ctx context.Context, repoID int64) (Installation, error)
 }
 
 type defaultInstallationsService struct {
@@ -139,6 +144,18 @@ func (i defaultInstallationsService) GetByRepository(ctx context.Context, owner,
 		return Installation{}, InstallationNotFound(ownerRepo)
 	}
 	return Installation{}, errors.Wrapf(err, "failed to get installation for repository %q", ownerRepo)
+}
+
+func (i defaultInstallationsService) GetByRepositoryID(ctx context.Context, repoID int64) (Installation, error) {
+	installation, _, err := i.Apps.FindRepositoryInstallationByID(ctx, repoID)
+	if err == nil {
+		return toInstallation(installation), nil
+	}
+
+	if isNotFound(err) {
+		return Installation{}, InstallationNotFound(fmt.Sprintf("repository id %d", repoID))
+	}
+	return Installation{}, errors.Wrapf(err, "failed to get installation for repository id %q", repoID)
 }
 
 // InstallationNotFound is returned when no installation exists for a
