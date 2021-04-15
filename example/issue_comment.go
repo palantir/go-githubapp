@@ -58,7 +58,7 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 		return nil
 	}
 
-	client, err := h.NewInstallationClient(installationID)
+	client, _, err := h.NewInstallationClient(installationID)
 	if err != nil {
 		return err
 	}

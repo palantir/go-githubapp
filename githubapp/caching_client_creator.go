@@ -27,6 +27,16 @@ const (
 	DefaultCachingClientCapacity = 64
 )
 
+type clientTokenSource struct {
+	client      *github.Client
+	tokenSource TokenSource
+}
+
+type clientV4TokenSource struct {
+	client      *githubv4.Client
+	tokenSource TokenSource
+}
+
 // NewDefaultCachingClientCreator returns a ClientCreator using values from the
 // configuration or other defaults.
 func NewDefaultCachingClientCreator(c Config, opts ...ClientOption) (ClientCreator, error) {
@@ -70,42 +80,42 @@ func (c *cachingClientCreator) NewAppV4Client() (*githubv4.Client, error) {
 	return c.delegate.NewAppV4Client()
 }
 
-func (c *cachingClientCreator) NewInstallationClient(installationID int64) (*github.Client, error) {
+func (c *cachingClientCreator) NewInstallationClient(installationID int64) (*github.Client, TokenSource, error) {
 	// if client is in cache, return it
 	key := c.toCacheKey("v3", installationID)
 	val, ok := c.cachedClients.Get(key)
 	if ok {
-		if client, ok := val.(*github.Client); ok {
-			return client, nil
+		if cts, ok := val.(clientTokenSource); ok {
+			return cts.client, cts.tokenSource, nil
 		}
 	}
 
 	// otherwise, create and return
-	client, err := c.delegate.NewInstallationClient(installationID)
+	client, ts, err := c.delegate.NewInstallationClient(installationID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	c.cachedClients.Add(key, client)
-	return client, nil
+	c.cachedClients.Add(key, clientTokenSource{client, ts})
+	return client, ts, nil
 }
 
-func (c *cachingClientCreator) NewInstallationV4Client(installationID int64) (*githubv4.Client, error) {
+func (c *cachingClientCreator) NewInstallationV4Client(installationID int64) (*githubv4.Client, TokenSource, error) {
 	// if client is in cache, return it
 	key := c.toCacheKey("v4", installationID)
 	val, ok := c.cachedClients.Get(key)
 	if ok {
-		if client, ok := val.(*githubv4.Client); ok {
-			return client, nil
+		if cts, ok := val.(clientV4TokenSource); ok {
+			return cts.client, cts.tokenSource, nil
 		}
 	}
 
 	// otherwise, create and return
-	client, err := c.delegate.NewInstallationV4Client(installationID)
+	client, ts, err := c.delegate.NewInstallationV4Client(installationID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	c.cachedClients.Add(key, client)
-	return client, nil
+	c.cachedClients.Add(key, clientV4TokenSource{client, ts})
+	return client, ts, nil
 }
 
 func (c *cachingClientCreator) NewTokenClient(token string) (*github.Client, error) {
