@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/alexedwards/scs v1.4.1
 	github.com/bradleyfalzon/ghinstallation v1.1.1
+	github.com/go-git/go-git/v5 v5.3.0 // indirect
 	github.com/google/go-github/v29 v29.0.3 // indirect
 	github.com/google/go-github/v33 v33.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
@@ -17,5 +18,5 @@ require (
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f // indirect
 	goji.io v2.0.2+incompatible
 	golang.org/x/oauth2 v0.0.0-20210113205817-d3ed898aa8a3
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.3.0
 )
