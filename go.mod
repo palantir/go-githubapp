@@ -7,6 +7,7 @@ require (
 	github.com/bradleyfalzon/ghinstallation v1.1.1
 	github.com/google/go-github/v29 v29.0.3 // indirect
 	github.com/google/go-github/v33 v33.0.0
+	github.com/google/go-github/v35 v35.1.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/palantir/go-baseapp v0.2.3
