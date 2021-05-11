@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/alexedwards/scs v1.4.1
-	github.com/bradleyfalzon/ghinstallation v1.1.1
+	github.com/bradleyfalzon/ghinstallation v1.1.2-0.20210508092528-3386a2062511
 	github.com/google/go-github/v29 v29.0.3 // indirect
 	github.com/google/go-github/v35 v35.1.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
