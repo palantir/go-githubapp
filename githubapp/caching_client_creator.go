@@ -61,13 +61,41 @@ type cachingClientCreator struct {
 }
 
 func (c *cachingClientCreator) NewAppClient() (*github.Client, error) {
-	// app clients are not cached
-	return c.delegate.NewAppClient()
+	// if client is in cache, return it
+	key := "app-client"
+	val, ok := c.cachedClients.Get(key)
+	if ok {
+		if client, ok := val.(*github.Client); ok {
+			return client, nil
+		}
+	}
+
+	// otherwise, create and return
+	client, err := c.delegate.NewAppClient()
+	if err != nil {
+		return nil, err
+	}
+	c.cachedClients.Add(key, client)
+	return client, nil
 }
 
 func (c *cachingClientCreator) NewAppV4Client() (*githubv4.Client, error) {
-	// app clients are not cached
-	return c.delegate.NewAppV4Client()
+	// if client is in cache, return it
+	key := "app-v4-client"
+	val, ok := c.cachedClients.Get(key)
+	if ok {
+		if client, ok := val.(*githubv4.Client); ok {
+			return client, nil
+		}
+	}
+
+	// otherwise, create and return
+	client, err := c.delegate.NewAppV4Client()
+	if err != nil {
+		return nil, err
+	}
+	c.cachedClients.Add(key, client)
+	return client, nil
 }
 
 func (c *cachingClientCreator) NewInstallationClient(installationID int64) (*github.Client, error) {
