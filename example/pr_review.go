@@ -20,23 +20,28 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/go-github/v37/github"
+	"github.com/google/go-github/v33/github"
 	"github.com/palantir/go-githubapp/githubapp"
+
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	transport_http "github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
 
-type PRCommentHandler struct {
+type PRReviewHandler struct {
 	githubapp.ClientCreator
 
 	preamble string
 }
 
-func (h *PRCommentHandler) Handles() []string {
-	return []string{"issue_comment"}
+func (h *PRReviewHandler) Handles() []string {
+	return []string{"pull_request"}
 }
 
-func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID string, payload []byte) error {
+func (h *PRReviewHandler) Handle(ctx context.Context, eventType, deliveryID string, payload []byte) error {
 	var event github.IssueCommentEvent
 	if err := json.Unmarshal(payload, &event); err != nil {
 		return errors.Wrap(err, "failed to parse issue comment event payload")
@@ -58,11 +63,27 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 		return nil
 	}
 
-	client, _, err := h.NewInstallationClient(installationID)
+	// Get Access Token
+	client, ts, err := h.NewInstallationClient(installationID)
 	if err != nil {
 		return err
 	}
+	token, err := ts.Token(context.Background())
 
+	// Clone the repository
+	tokenAuth := &transport_http.BasicAuth{Username: "x-access-token", Password: token}
+	storer := memory.NewStorage()
+	gitRepo, err := git.Clone(storer, nil, &git.CloneOptions{
+		URL:  "https://github.com/palantir/go-githubapp.git",
+		Auth: tokenAuth,
+	})
+
+	// Insert your own advanced Git scenario here:
+	mainRef, _ := gitRepo.Reference(plumbing.NewBranchReferenceName(event.GetRepo().GetMasterBranch()), true)
+	commit, _ := gitRepo.CommitObject(mainRef.Hash())
+	logger.Debug().Msgf("Last commit on master was by %s", commit.Author.Name)
+
+	// Remainder of old logic...
 	repoOwner := repo.GetOwner().GetLogin()
 	repoName := repo.GetName()
 	author := event.GetComment().GetUser().GetLogin()
