@@ -9,7 +9,7 @@ require (
 	github.com/google/go-github/v37 v37.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/golang-lru v0.5.4
-	github.com/palantir/go-baseapp v0.2.3
+	github.com/palantir/go-baseapp v0.2.4
 	github.com/pkg/errors v0.9.1
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
 	github.com/rs/zerolog v1.18.0
