@@ -1,0 +1,10 @@
+- status: 200
+  body: |
+    [
+      {
+        "type": "file",
+        "name": "test-app.yml",
+        "path": ".github/test-app.yml",
+        "download_url": "https://raw.githubusercontent.com/test/local-file-large/develop/.github/test-app.yml"
+      }
+    ]
