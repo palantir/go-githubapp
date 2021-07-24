@@ -299,7 +299,7 @@ path: config/app.yml
 ref: develop
 ```
 
-Usage is straightfowrad:
+Usage is straightforward:
 
 ```go
 func loadConfig(ctx context.Context, client *github.Client, owner, repo, ref string) (*AppConfig, error) {
