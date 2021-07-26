@@ -265,13 +265,13 @@ func getLargeFileContents(ctx context.Context, client *github.Client, owner, rep
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read file")
 	}
-	if res.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("failed to read file: unexpected status code %d", res.StatusCode)
-	}
-
 	defer func() {
 		_ = body.Close()
 	}()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("failed to read file: unexpected status code %d", res.StatusCode)
+	}
 
 	b, err := ioutil.ReadAll(body)
 	if err != nil {
