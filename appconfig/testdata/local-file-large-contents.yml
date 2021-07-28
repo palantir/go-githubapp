@@ -1,0 +1,7 @@
+- status: 422
+  body: |
+    {
+      "errors": [
+        {"code": "too_large"}
+      ]
+    }

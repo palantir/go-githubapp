@@ -15,6 +15,7 @@ logic of your application.
 * [GitHub Clients](#github-clients)
 * [Metrics](#metrics)
 * [Background Jobs and Multi-Organization Operations](#background-jobs-and-multi-organization-operations)
+* [Config Loading](#config-loading)
 * [OAuth2](#oauth2)
 * [Stability and Versioning Guarantees](#stability-and-versioning-guarantees)
 * [Contributing](#contributing)
@@ -269,6 +270,55 @@ func getOrganizationClient(cc githubapp.ClientCreator, org string) (*github.Clie
     return cc.NewInstallationClient(install.ID)
 }
 
+```
+
+## Config Loading
+
+The `appconfig` package provides a flexible configuration loader for finding
+repository configuration. It supports repository-local files, files containing
+remote references, and organization-level defaults.
+
+By default, the loader will:
+
+1. Try a list of paths in the repository
+2. If a file exists at a path, load its contents
+3. If the contents define a remote reference, load the remote file. Otherwise,
+   return the contents.
+4. If no files exist in the repository, try a list of paths in a `.github`
+   repository owned by the same owner.
+
+Users can customize the paths, the remote reference encoding, whether remote
+references are enabled, the name of the owner-level default repository, and
+whether the owner-level default is enabled.
+
+The standard remote reference encoding is YAML:
+
+```yaml
+remote: owner/repo
+path: config/app.yml
+ref: develop
+```
+
+Usage is straightforward:
+
+```go
+func loadConfig(ctx context.Context, client *github.Client, owner, repo, ref string) (*AppConfig, error) {
+    loader := appconfig.NewLoader([]string{".github/app.yml"})
+
+    c, err := loader.LoadConfig(ctx, client, onwer, repo, ref)
+    if err != nil {
+        return nil, err
+    }
+    if c.IsUndefined() {
+        return nil, nil
+    }
+
+    var appConfig AppConfig
+    if err := yaml.Unmarshal(c.Content, &appConfig); err != nil {
+        return nil, err
+    }
+    return &appConfig, nil
+}
 ```
 
 ## OAuth2
