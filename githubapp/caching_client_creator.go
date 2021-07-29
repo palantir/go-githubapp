@@ -127,7 +127,8 @@ func (c *cachingClientCreator) NewTokenV4Client(token string) (*githubv4.Client,
 
 func (c *cachingClientCreator) NewTokenSourceV4Client(ts oauth2.TokenSource) (*githubv4.Client, error) {
 	// token clients are not cached
-	return c.delegate.NewTokenSourceV4Client(ts)}
+	return c.delegate.NewTokenSourceV4Client(ts)
+}
 
 func (c *cachingClientCreator) toCacheKey(apiVersion string, installationID int64) string {
 	return fmt.Sprintf("%s:%d", apiVersion, installationID)
