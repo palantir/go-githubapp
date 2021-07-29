@@ -109,7 +109,6 @@ func (c *cachingClientCreator) NewInstallationV4Client(installationID int64) (*g
 	return client, nil
 }
 
-
 func (c *cachingClientCreator) NewTokenSourceClient(ts oauth2.TokenSource) (*github.Client, error) {
 	// token clients are not cached
 	return c.delegate.NewTokenSourceClient(ts)
