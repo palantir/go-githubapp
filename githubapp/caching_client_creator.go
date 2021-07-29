@@ -15,7 +15,6 @@
 package githubapp
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/google/go-github/v37/github"
@@ -110,9 +109,10 @@ func (c *cachingClientCreator) NewInstallationV4Client(installationID int64) (*g
 	return client, nil
 }
 
-func (c *cachingClientCreator) NewTokenSourceClient(ctx context.Context, ts oauth2.TokenSource) (*github.Client, error) {
+
+func (c *cachingClientCreator) NewTokenSourceClient(ts oauth2.TokenSource) (*github.Client, error) {
 	// token clients are not cached
-	return c.delegate.NewTokenSourceClient(ctx, ts)
+	return c.delegate.NewTokenSourceClient(ts)
 }
 
 func (c *cachingClientCreator) NewTokenClient(token string) (*github.Client, error) {
@@ -125,10 +125,9 @@ func (c *cachingClientCreator) NewTokenV4Client(token string) (*githubv4.Client,
 	return c.delegate.NewTokenV4Client(token)
 }
 
-func (c *cachingClientCreator) NewTokenSourceV4Client(ctx context.Context, ts oauth2.TokenSource) (*githubv4.Client, error) {
+func (c *cachingClientCreator) NewTokenSourceV4Client(ts oauth2.TokenSource) (*githubv4.Client, error) {
 	// token clients are not cached
-	return c.delegate.NewTokenSourceV4Client(ctx, ts)
-}
+	return c.delegate.NewTokenSourceV4Client(ts)}
 
 func (c *cachingClientCreator) toCacheKey(apiVersion string, installationID int64) string {
 	return fmt.Sprintf("%s:%d", apiVersion, installationID)
