@@ -32,21 +32,16 @@ func TestYAMLRemoteRefParser(t *testing.T) {
 				Ref:    "main",
 			},
 		},
-		"empty": {
-			Input:  "",
-			Output: nil,
-		},
-		"comments": {
-			Input:  "# the existence of this file enables the app\n",
-			Output: nil,
-		},
 		"missingRemote": {
-			Input: "{path: test.yaml, ref: main}",
-			Error: true,
+			Input:  "{path: test.yaml, ref: main}",
+			Output: nil,
 		},
 		"missingPath": {
 			Input: "{remote: test/test, ref: main}",
-			Error: true,
+			Output: &RemoteRef{
+				Remote: "test/test",
+				Ref:    "main",
+			},
 		},
 		"missingRef": {
 			Input: "{remote: test/test, path: test.yaml}",
@@ -55,11 +50,23 @@ func TestYAMLRemoteRefParser(t *testing.T) {
 				Path:   "test.yaml",
 			},
 		},
-		"extraFields": {
-			Input:  "{remote: test/test, path: test.yaml, key: value}",
+		"emptyRemote": {
+			Input: "{remote: ''}",
+			Error: true,
+		},
+		"empty": {
+			Input:  "",
 			Output: nil,
 		},
-		"unknownFields": {
+		"commentsOnly": {
+			Input:  "# the existence of this file enables the app\n",
+			Output: nil,
+		},
+		"extraFields": {
+			Input:  "{remote: test/test, path: test.yaml, ref: main, key: value}",
+			Output: nil,
+		},
+		"onlyUnknownFields": {
 			Input:  "{key: value}",
 			Output: nil,
 		},
