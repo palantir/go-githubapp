@@ -36,6 +36,10 @@ func TestYAMLRemoteRefParser(t *testing.T) {
 			Input:  "",
 			Output: nil,
 		},
+		"comments": {
+			Input:  "# the existence of this file enables the app\n",
+			Output: nil,
+		},
 		"missingRemote": {
 			Input: "{path: test.yaml, ref: main}",
 			Error: true,
