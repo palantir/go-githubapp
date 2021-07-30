@@ -1,0 +1,7 @@
+- status: 200
+  body: |
+    {
+      "name": "config",
+      "full_name": "remote/config",
+      "default_branch": "main"
+    }
