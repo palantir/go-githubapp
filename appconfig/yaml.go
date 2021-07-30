@@ -15,7 +15,7 @@
 package appconfig
 
 import (
-	"errors"
+	"fmt"
 
 	"gopkg.in/yaml.v2"
 )
@@ -23,17 +23,39 @@ import (
 // YAMLRemoteRefParser parses b as a YAML-encoded RemoteRef. It assumes all
 // parsing errors mean the content is not a RemoteRef.
 func YAMLRemoteRefParser(path string, b []byte) (*RemoteRef, error) {
-	var ref RemoteRef
-	if err := yaml.UnmarshalStrict(b, &ref); err != nil {
+	var maybeRef struct {
+		Remote *string `yaml:"remote"`
+		Path   *string `yaml:"path"`
+		Ref    *string `yaml:"ref"`
+	}
+
+	if err := yaml.UnmarshalStrict(b, &maybeRef); err != nil {
 		// assume errors mean this isn't a remote config
 		return nil, nil
 	}
-
-	if ref.Remote == "" {
-		return nil, errors.New("invalid remote reference: empty \"remote\" field")
+	if maybeRef.Remote == nil && maybeRef.Path == nil && maybeRef.Ref == nil {
+		return nil, nil
 	}
-	if ref.Path == "" {
-		return nil, errors.New("invalid remote references: empty \"path\" field")
+
+	ref := RemoteRef{}
+	if err := copyField(&ref.Remote, maybeRef.Remote, "remote"); err != nil {
+		return nil, err
+	}
+	if err := copyField(&ref.Path, maybeRef.Path, "path"); err != nil {
+		return nil, err
+	}
+	if err := copyField(&ref.Ref, maybeRef.Ref, "ref"); err != nil {
+		// do nothing, ref is not a required field
 	}
 	return &ref, nil
+}
+
+func copyField(dst, src *string, name string) error {
+	if src != nil {
+		*dst = *src
+	}
+	if *dst == "" {
+		return fmt.Errorf("invalid remote reference: empty %q field", name)
+	}
+	return nil
 }
