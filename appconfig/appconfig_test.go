@@ -74,6 +74,16 @@ func TestLoadConfig(t *testing.T) {
 				IsRemote: true,
 			},
 		},
+		"remoteReferenceEmptyGitRef": {
+			Paths: []string{".github/test-app.yml"},
+			Repo:  "remote-ref-empty-git-ref",
+			Expected: Config{
+				Content:  []byte("message: hello\n"),
+				Source:   "remote/config@main",
+				Path:     "config/test-app.yml",
+				IsRemote: true,
+			},
+		},
 		"defaultConfig": {
 			Paths: []string{".github/test-app.yml"},
 			Repo:  "default-config",
@@ -129,8 +139,10 @@ func makeTestClient() *github.Client {
 		"/repos/test/local-file-large/contents/.github":              "local-file-large-dir-contents.yml",
 		"/test/local-file-large/develop/.github/test-app.yml":        "local-file-large-download.yml",
 
-		"/repos/test/remote-ref/contents/.github/test-app.yml": "remote-ref-contents.yml",
-		"/repos/remote/config/contents/config/test-app.yml":    "config-contents.yml",
+		"/repos/test/remote-ref/contents/.github/test-app.yml":               "remote-ref-contents.yml",
+		"/repos/test/remote-ref-empty-git-ref/contents/.github/test-app.yml": "remote-ref-empty-git-ref-contents.yml",
+		"/repos/remote/config/contents/config/test-app.yml":                  "config-contents.yml",
+		"/repos/remote/config": "remote-config.yml",
 
 		"/repos/test/default-config/contents/.github/test-app.yml": "404.yml",
 		"/repos/test/.github":                       "dot-github.yml",
