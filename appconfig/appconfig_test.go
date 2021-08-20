@@ -93,6 +93,19 @@ func TestLoadConfig(t *testing.T) {
 				Path:    "test-app.yml",
 			},
 		},
+		"defaultConfigRemoteReference": {
+			Paths: []string{".github-remote/test-app.yml"},
+			Options: []Option{
+				WithOwnerDefault(".github-remote", []string{"test-app.yml"}),
+			},
+			Repo: "default-config-remote-ref",
+			Expected: Config{
+				Content:  []byte("message: hello\n"),
+				Source:   "remote/config@develop",
+				Path:     "config/test-app.yml",
+				IsRemote: true,
+			},
+		},
 	}
 
 	ctx := context.Background()
@@ -147,6 +160,10 @@ func makeTestClient() *github.Client {
 		"/repos/test/default-config/contents/.github/test-app.yml": "404.yml",
 		"/repos/test/.github":                       "dot-github.yml",
 		"/repos/test/.github/contents/test-app.yml": "dot-github-contents.yml",
+
+		"/repos/test/default-config-remote-ref/contents/.github-remote/test-app.yml": "404.yml",
+		"/repos/test/.github-remote":               "remote-config.yml",
+		"/repos/test/config/contents/test-app.yml": "remote-ref-contents.yml",
 	} {
 		rp.AddRule(ExactPathMatcher(route), filepath.Join("testdata", f))
 	}
