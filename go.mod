@@ -4,8 +4,7 @@ go 1.16
 
 require (
 	github.com/alexedwards/scs v1.4.1
-	github.com/bradleyfalzon/ghinstallation v1.1.1
-	github.com/google/go-github/v29 v29.0.3 // indirect
+	github.com/bradleyfalzon/ghinstallation/v2 v2.0.2
 	github.com/google/go-github/v38 v38.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/golang-lru v0.5.4
