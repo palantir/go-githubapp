@@ -135,6 +135,7 @@ type clientCreator struct {
 	cacheFunc      func() httpcache.Cache
 	alwaysValidate bool
 	timeout        time.Duration
+	transport      http.RoundTripper
 }
 
 var _ ClientCreator = &clientCreator{}
@@ -175,6 +176,15 @@ func WithClientTimeout(timeout time.Duration) ClientOption {
 func WithClientMiddleware(middleware ...ClientMiddleware) ClientOption {
 	return func(c *clientCreator) {
 		c.middleware = middleware
+	}
+}
+
+// WithTransport sets the http.RoundTripper used to make requests. Clients can
+// provide an http.Transport instance to modify TLS, proxy, or timeout options.
+// By default, clients use http.DefaultTransport.
+func WithTransport(transport http.RoundTripper) ClientOption {
+	return func(c *clientCreator) {
+		c.transport = transport
 	}
 }
 
@@ -282,7 +292,7 @@ func (c *clientCreator) NewTokenSourceV4Client(ts oauth2.TokenSource) (*githubv4
 
 func (c *clientCreator) newHTTPClient() *http.Client {
 	return &http.Client{
-		Transport: http.DefaultTransport,
+		Transport: c.transport,
 		Timeout:   c.timeout,
 	}
 }
