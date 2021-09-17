@@ -1,0 +1,9 @@
+- status: 200
+  body: |
+    {
+      "type": "file",
+      "encoding": "base64",
+      "name": "test-app.yml",
+      "path": "test-app.yml",
+      "content": "bWVzc2FnZTogaGVsbG8K"
+    }

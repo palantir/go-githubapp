@@ -1,0 +1,7 @@
+- status: 200
+  body: |
+    {
+      "name": ".github",
+      "full_name": "test/.github",
+      "default_branch": "develop"
+    }
