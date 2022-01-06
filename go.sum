@@ -162,8 +162,8 @@ github.com/rs/zerolog v1.26.0/go.mod h1:yBiM87lvSqX8h0Ww4sdzNSkVYZ8dL2xjZJG1lAuG
 github.com/rs/zerolog v1.26.1 h1:/ihwxqH+4z8UxyI70wM1z9yCvkWcfz/a3mj48k/Zngc=
 github.com/rs/zerolog v1.26.1/go.mod h1:/wSSJWX7lVrsOwlbyTRSOJvqRlc+WjWlfes+CiJ+tmc=
 github.com/russellhaering/goxmldsig v1.1.1/go.mod h1:gM4MDENBQf7M+V824SGfyIUVFWydB7n0KkEubVJl+Tw=
-github.com/shurcooL/githubv4 v0.0.0-20211117020012-5800b9de5b8b h1:SAQLigkf0rd6emglkR1lRKRB9coWjib5OxnHmV1ZiFs=
-github.com/shurcooL/githubv4 v0.0.0-20211117020012-5800b9de5b8b/go.mod h1:hAF0iLZy4td2EX+/8Tw+4nodhlMrwN3HupfaXj3zkGo=
+github.com/shurcooL/githubv4 v0.0.0-20220106005112-0707a5a90543 h1:TLml5yQBxKTGrjQQUt+fMcJNNIUyNH0wDeCVGyaLF+s=
+github.com/shurcooL/githubv4 v0.0.0-20220106005112-0707a5a90543/go.mod h1:hAF0iLZy4td2EX+/8Tw+4nodhlMrwN3HupfaXj3zkGo=
 github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f h1:tygelZueB1EtXkPI6mQ4o9DQ0+FKW41hTbunoXZCTqk=
 github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f/go.mod h1:AuYgA5Kyo4c7HfUmvRGs/6rGlMMV/6B1bVnB9JxJEEg=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
