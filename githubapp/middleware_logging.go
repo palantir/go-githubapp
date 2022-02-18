@@ -37,9 +37,10 @@ func ClientLogging(lvl zerolog.Level, opts ...ClientLoggingOption) ClientMiddlew
 
 	return func(next http.RoundTripper) http.RoundTripper {
 		return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
-			var reqBody []byte
+			var err error
+			var reqBody, resBody []byte
+
 			if requestMatches(r, options.RequestBodyPatterns) {
-				var err error
 				if r, reqBody, err = mirrorRequestBody(r); err != nil {
 					return nil, err
 				}
@@ -64,6 +65,13 @@ func ClientLogging(lvl zerolog.Level, opts ...ClientLoggingOption) ClientMiddlew
 				evt.Int("status", res.StatusCode).
 					Int64("size", res.ContentLength).
 					Bool("cached", cached)
+
+				if requestMatches(r, options.ResponseBodyPatterns) {
+					if res, resBody, err = mirrorResponseBody(res); err != nil {
+						return res, err
+					}
+					evt.Bytes("response_body", resBody)
+				}
 			} else {
 				evt.Int("status", -1).
 					Int64("size", -1).
@@ -78,6 +86,11 @@ func ClientLogging(lvl zerolog.Level, opts ...ClientLoggingOption) ClientMiddlew
 
 // ClientLoggingOption controls behavior of client request logs.
 type ClientLoggingOption func(*clientLoggingOptions)
+
+type clientLoggingOptions struct {
+	RequestBodyPatterns  []*regexp.Regexp
+	ResponseBodyPatterns []*regexp.Regexp
+}
 
 // LogRequestBody enables request body logging for requests to paths matching
 // any of the regular expressions in patterns. It panics if any of the patterns
@@ -125,6 +138,17 @@ func mirrorRequestBody(r *http.Request) (*http.Request, []byte, error) {
 	}
 }
 
+func mirrorResponseBody(res *http.Response) (*http.Response, []byte, error) {
+	body, err := io.ReadAll(res.Body)
+	closeBody(res.Body)
+	if err != nil {
+		return res, nil, err
+	}
+
+	res.Body = io.NopCloser(bytes.NewReader(body))
+	return res, body, nil
+}
+
 func compileRegexps(pats []string) []*regexp.Regexp {
 	regexps := make([]*regexp.Regexp, len(pats))
 	for i, p := range pats {
@@ -144,9 +168,4 @@ func requestMatches(r *http.Request, pats []*regexp.Regexp) bool {
 
 func closeBody(b io.ReadCloser) {
 	_ = b.Close() // per http.Transport impl, ignoring close errors is fine
-}
-
-type clientLoggingOptions struct {
-	RequestBodyPatterns  []*regexp.Regexp
-	ResponseBodyPatterns []*regexp.Regexp
 }
