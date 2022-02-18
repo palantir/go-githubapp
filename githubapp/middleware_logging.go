@@ -62,20 +62,25 @@ func ClientLogging(lvl zerolog.Level, opts ...ClientLoggingOption) ClientMiddlew
 
 			if res != nil {
 				cached := res.Header.Get(httpcache.XFromCache) != ""
-				evt.Int("status", res.StatusCode).
-					Int64("size", res.ContentLength).
-					Bool("cached", cached)
+				evt.Bool("cached", cached).
+					Int("status", res.StatusCode)
 
+				size := res.ContentLength
 				if requestMatches(r, options.ResponseBodyPatterns) {
 					if res, resBody, err = mirrorResponseBody(res); err != nil {
 						return res, err
 					}
-					evt.Bytes("response_body", resBody)
+					if size < 0 {
+						size = int64(len(resBody))
+					}
+					evt.Int64("size", size).Bytes("response_body", resBody)
+				} else {
+					evt.Int64("size", size)
 				}
 			} else {
-				evt.Int("status", -1).
-					Int64("size", -1).
-					Bool("cached", false)
+				evt.Bool("cached", false).
+					Int("status", -1).
+					Int64("size", -1)
 			}
 
 			evt.Msg("github_request")
