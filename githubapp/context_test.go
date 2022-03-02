@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/google/go-github/v42/github"
+	"github.com/google/go-github/v43/github"
 	"github.com/rs/zerolog"
 )
 
