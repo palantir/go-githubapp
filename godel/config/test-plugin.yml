@@ -2,3 +2,6 @@ tags:
   integration:
     names:
     - ^integration$
+exclude:
+  names:
+    - ^example$
