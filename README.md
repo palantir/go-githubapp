@@ -72,7 +72,6 @@ commenting with a copy of the comment body.
 To run the app, update `example/config.yml` with appropriate secrets and then
 run:
 
-    ./godelw dep
     ./godelw run example
 
 ### Dependencies

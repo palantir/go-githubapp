@@ -15,4 +15,3 @@ exclude:
     - "vendor"
   paths:
     - "godel"
-    - "example"
