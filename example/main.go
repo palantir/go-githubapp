@@ -22,6 +22,7 @@ import (
 
 	"github.com/gregjones/httpcache"
 	"github.com/palantir/go-githubapp/githubapp"
+	"github.com/rcrowley/go-metrics"
 	"github.com/rs/zerolog"
 )
 
@@ -34,11 +35,16 @@ func main() {
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
 	zerolog.DefaultContextLogger = &logger
 
+	metricsRegistry := metrics.DefaultRegistry
+
 	cc, err := githubapp.NewDefaultCachingClientCreator(
 		config.Github,
 		githubapp.WithClientUserAgent("example-app/1.0.0"),
 		githubapp.WithClientTimeout(3*time.Second),
 		githubapp.WithClientCaching(false, func() httpcache.Cache { return httpcache.NewMemoryCache() }),
+		githubapp.WithClientMiddleware(
+			githubapp.ClientMetrics(metricsRegistry),
+		),
 	)
 	if err != nil {
 		panic(err)
@@ -52,8 +58,10 @@ func main() {
 	webhookHandler := githubapp.NewDefaultEventDispatcher(config.Github, prCommentHandler)
 
 	http.Handle(githubapp.DefaultWebhookRoute, webhookHandler)
-	logger.Info().Msg("Starting server...")
-	err = http.ListenAndServe(fmt.Sprintf("%s:%d", config.Server.Address, config.Server.Port), nil)
+
+	addr := fmt.Sprintf("%s:%d", config.Server.Address, config.Server.Port)
+	logger.Info().Msgf("Starting server on %s...", addr)
+	err = http.ListenAndServe(addr, nil)
 	if err != nil {
 		panic(err)
 	}

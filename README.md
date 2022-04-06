@@ -63,6 +63,10 @@ func registerRoutes(c githubapp.Config) {
 }
 ```
 
+We recommend using [go-baseapp](https://github.com/palantir/go-baseapp) as the minimal server
+framework for writing github apps, though go-githubapp works well with the standard library and 
+can be easily integrated into most existing frameworks.
+
 ### Examples
 
 The [example package](example/main.go) contains a fully functional server
