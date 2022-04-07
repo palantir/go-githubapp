@@ -17,17 +17,21 @@ package main
 import (
 	"io/ioutil"
 
-	"github.com/palantir/go-baseapp/baseapp"
 	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
-	Server baseapp.HTTPConfig `yaml:"server"`
-	Github githubapp.Config   `yaml:"github"`
+	Server HTTPConfig       `yaml:"server"`
+	Github githubapp.Config `yaml:"github"`
 
 	AppConfig MyApplicationConfig `yaml:"app_configuration"`
+}
+
+type HTTPConfig struct {
+	Address string `yaml:"address"`
+	Port    int    `yaml:"port"`
 }
 
 type MyApplicationConfig struct {

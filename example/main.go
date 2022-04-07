@@ -15,14 +15,15 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/gregjones/httpcache"
-	"github.com/palantir/go-baseapp/baseapp"
 	"github.com/palantir/go-githubapp/githubapp"
+	"github.com/rcrowley/go-metrics"
 	"github.com/rs/zerolog"
-	"goji.io/pat"
 )
 
 func main() {
@@ -32,14 +33,9 @@ func main() {
 	}
 
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
+	zerolog.DefaultContextLogger = &logger
 
-	server, err := baseapp.NewServer(
-		config.Server,
-		baseapp.DefaultParams(logger, "exampleapp.")...,
-	)
-	if err != nil {
-		panic(err)
-	}
+	metricsRegistry := metrics.DefaultRegistry
 
 	cc, err := githubapp.NewDefaultCachingClientCreator(
 		config.Github,
@@ -47,7 +43,7 @@ func main() {
 		githubapp.WithClientTimeout(3*time.Second),
 		githubapp.WithClientCaching(false, func() httpcache.Cache { return httpcache.NewMemoryCache() }),
 		githubapp.WithClientMiddleware(
-			githubapp.ClientMetrics(server.Registry()),
+			githubapp.ClientMetrics(metricsRegistry),
 		),
 	)
 	if err != nil {
@@ -60,10 +56,12 @@ func main() {
 	}
 
 	webhookHandler := githubapp.NewDefaultEventDispatcher(config.Github, prCommentHandler)
-	server.Mux().Handle(pat.Post(githubapp.DefaultWebhookRoute), webhookHandler)
 
-	// Start is blocking
-	err = server.Start()
+	http.Handle(githubapp.DefaultWebhookRoute, webhookHandler)
+
+	addr := fmt.Sprintf("%s:%d", config.Server.Address, config.Server.Port)
+	logger.Info().Msgf("Starting server on %s...", addr)
+	err = http.ListenAndServe(addr, nil)
 	if err != nil {
 		panic(err)
 	}
