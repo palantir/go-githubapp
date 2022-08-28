@@ -125,6 +125,13 @@ func OnLogin(c LoginCallback) Param {
 	}
 }
 
+// SetRedirectURI sets the redirect URL.
+func SetRedirectURI(uri string) Param {
+	return func(h *handler) {
+		h.config.RedirectURL = uri
+	}
+}
+
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// copy config for modification
 	conf := *h.config
