@@ -125,8 +125,9 @@ func OnLogin(c LoginCallback) Param {
 	}
 }
 
-// SetRedirectURI sets the redirect URL.
-func SetRedirectURI(uri string) Param {
+// WithRedirectURL sets  a static redirect URL. By default, the redirect URL is
+// generated using the request path, the Host header, and the ForceTLS option.
+func WithRedirectURL(uri string) Param {
 	return func(h *handler) {
 		h.config.RedirectURL = uri
 	}
