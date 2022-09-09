@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/alexedwards/scs v1.4.1
 	github.com/bradleyfalzon/ghinstallation/v2 v2.1.0
-	github.com/google/go-github/v45 v45.2.0
+	github.com/google/go-github/v47 v47.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/pkg/errors v0.9.1
@@ -19,6 +19,7 @@ require (
 require (
 	github.com/golang-jwt/jwt/v4 v4.4.1 // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
+	github.com/google/go-github/v45 v45.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
