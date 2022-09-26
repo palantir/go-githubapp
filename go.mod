@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/alexedwards/scs v1.4.1
 	github.com/bradleyfalzon/ghinstallation/v2 v2.1.0
-	github.com/google/go-github/v47 v47.0.0
+	github.com/google/go-github/v47 v47.1.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/pkg/errors v0.9.1
