@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rs/zerolog v1.28.0
-	github.com/shurcooL/githubv4 v0.0.0-20220520033151-0b4e3294ff00
+	github.com/shurcooL/githubv4 v0.0.0-20220922232305-70b4d362a8cb
 	golang.org/x/oauth2 v0.0.0-20210113205817-d3ed898aa8a3
 	gopkg.in/yaml.v2 v2.4.0
 )
@@ -26,7 +26,7 @@ require (
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/shurcooL/graphql v0.0.0-20181231061246-d48a9a75455f // indirect
-	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0 // indirect
+	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be // indirect
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 	golang.org/x/sys v0.0.0-20210927094055-39ccf1dd6fa6 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
