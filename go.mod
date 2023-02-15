@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 	github.com/rs/zerolog v1.29.0
-	github.com/shurcooL/githubv4 v0.0.0-20221229060216-a8d4a561cc93
+	github.com/shurcooL/githubv4 v0.0.0-20230215024106-420ad0987b9b
 	golang.org/x/oauth2 v0.0.0-20210113205817-d3ed898aa8a3
 	gopkg.in/yaml.v2 v2.4.0
 )
