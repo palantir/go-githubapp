@@ -1,6 +1,6 @@
 module github.com/palantir/go-githubapp
 
-go 1.19
+go 1.20
 
 require (
 	github.com/alexedwards/scs v1.4.1
