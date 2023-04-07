@@ -267,31 +267,35 @@ func (ld *Loader) loadDefaultConfig(ctx context.Context, client *github.Client, 
 // getFileContents returns the content of the file at path on ref in owner/repo
 // if it exists. Returns an empty slice and false if the file does not exist.
 func getFileContents(ctx context.Context, client *github.Client, owner, repo, ref, path string) ([]byte, bool, error) {
-	file, _, _, err := client.Repositories.GetContents(ctx, owner, repo, path, &github.RepositoryContentGetOptions{
-		Ref: ref,
-	})
+	rawURL := client.BaseURL.String() + "repos/" + owner + "/" + repo + "/contents/" + path + "?ref=" + ref
+	req, err := http.NewRequestWithContext(ctx, "GET", rawURL, nil)
 	if err != nil {
-		switch {
-		case isNotFound(err):
-			return nil, false, nil
-		case isTooLargeError(err):
-			b, err := getLargeFileContents(ctx, client, owner, repo, ref, path)
-			return b, true, err
+		return nil, false, errors.Wrap(err, "failed to create request")
+	}
+	req.Header.Set("Accept", "application/vnd.github.raw")
+
+	httpClient := http.Client{}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, false, errors.Wrap(err, "failed to fetch file content")
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, true, errors.Wrap(err, "failed to read file content")
 		}
-		return nil, false, errors.Wrap(err, "failed to read file")
-	}
-
-	// file will be nil if the path exists but is a directory
-	if file == nil {
+		return content, true, nil
+	case http.StatusNotFound:
 		return nil, false, nil
+	case http.StatusForbidden:
+		b, err := getLargeFileContents(ctx, client, owner, repo, ref, path)
+		return b, true, err
+	default:
+		return nil, false, errors.New("unexpected error while fetching file content")
 	}
-
-	content, err := file.GetContent()
-	if err != nil {
-		return nil, true, errors.Wrap(err, "failed to decode file content")
-	}
-
-	return []byte(content), true, nil
 }
 
 // getLargeFileContents is similar to getFileContents, but works for files up
