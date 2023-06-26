@@ -73,7 +73,7 @@ func (c *cachingInstallationsService) GetByOwner(ctx context.Context, owner stri
 
 func (c *cachingInstallationsService) GetByRepository(ctx context.Context, owner, name string) (Installation, error) {
 	// if installation is in cache, return it
-	key := fmt.Sprintf(owner, "/", name)
+	key := fmt.Sprintf("%s/%s", owner, name)
 	val, ok := c.cache.Get(key)
 	if ok {
 		if install, ok := val.(Installation); ok {
