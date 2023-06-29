@@ -17,39 +17,30 @@ package githubapp
 import (
 	"context"
 	"fmt"
+	"time"
 
-	lru "github.com/hashicorp/golang-lru"
-	"github.com/pkg/errors"
+	ttlcache "github.com/patrickmn/go-cache"
 )
 
 // NewCachingInstallationsService returns an InstallationsService that always queries GitHub. It should be created with
 // a client that authenticates as the target.
-// It uses an LRU cache of the provided capacity to store app installation info for repositories and owners and returns
-// cached installation info when a cache hit exists.
-//
-// This should be used in cases where installation info needs to be queried multiple times across a short timespan as
-// the installation ID can change if an administrator uninstalls then reinstalls the app, in which case a cache hit
-// would return the wrong installation ID. Use with caution for long-lived usecases.
-func NewCachingInstallationsService(delegate InstallationsService, capacity int) (InstallationsService, error) {
-	cache, err := lru.New(capacity)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create cache")
-	}
-
+// It uses a time based cache of the provided expiry/cleanup time to store app installation info for repositories
+// or owners and returns the cached installation info when a cache hit exists.
+func NewCachingInstallationsService(delegate InstallationsService, expiry, cleanup time.Duration) InstallationsService {
 	return &cachingInstallationsService{
-		cache:    cache,
+		cache:    ttlcache.New(expiry, cleanup),
 		delegate: delegate,
-	}, nil
+	}
 }
 
 type cachingInstallationsService struct {
-	cache    *lru.Cache
+	cache    *ttlcache.Cache
 	delegate InstallationsService
 }
 
 func (c *cachingInstallationsService) ListAll(ctx context.Context) ([]Installation, error) {
-	// ListAll is not cached due to the higher probability of installation IDs changing when listing all installations
-	// across all organizations that the app is installed to
+	// ListAll is not cached due to a lack of keys to retrieve from the cache. Returning all values in the cache is not
+	// always desirable
 	return c.delegate.ListAll(ctx)
 }
 
@@ -57,9 +48,7 @@ func (c *cachingInstallationsService) GetByOwner(ctx context.Context, owner stri
 	// if installation is in cache, return it
 	val, ok := c.cache.Get(owner)
 	if ok {
-		if install, ok := val.(Installation); ok {
-			return install, nil
-		}
+		return val.(Installation), nil
 	}
 
 	// otherwise, get installation info, save to cache, and return
@@ -67,7 +56,7 @@ func (c *cachingInstallationsService) GetByOwner(ctx context.Context, owner stri
 	if err != nil {
 		return Installation{}, err
 	}
-	c.cache.Add(owner, install)
+	c.cache.Set(owner, install, ttlcache.DefaultExpiration)
 	return install, nil
 }
 
@@ -76,9 +65,7 @@ func (c *cachingInstallationsService) GetByRepository(ctx context.Context, owner
 	key := fmt.Sprintf("%s/%s", owner, name)
 	val, ok := c.cache.Get(key)
 	if ok {
-		if install, ok := val.(Installation); ok {
-			return install, nil
-		}
+		return val.(Installation), nil
 	}
 
 	// otherwise, get installation info, save to cache, and return
@@ -86,6 +73,6 @@ func (c *cachingInstallationsService) GetByRepository(ctx context.Context, owner
 	if err != nil {
 		return Installation{}, err
 	}
-	c.cache.Add(key, install)
+	c.cache.Set(key, install, ttlcache.DefaultExpiration)
 	return install, nil
 }
