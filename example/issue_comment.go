@@ -17,13 +17,29 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v58/github"
 	"github.com/palantir/go-githubapp/githubapp"
 	"github.com/pkg/errors"
+	"github.com/redhat-appstudio/qe-tools/pkg/prow"
 	"github.com/rs/zerolog"
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	reporters "github.com/onsi/ginkgo/v2/reporters"
+)
+
+const (
+	targetAuthor  = "dheerajodha"
+	buildLogFilename = "build-log.txt"
+	finishedFilename = "finished.json"
+	junitFilename = `/(j?unit|e2e).*\.xml`
+
+	gcsBrowserURLPrefix = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/"
 )
 
 type PRCommentHandler struct {
@@ -66,22 +82,98 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 	repoOwner := repo.GetOwner().GetLogin()
 	repoName := repo.GetName()
 	author := event.GetComment().GetUser().GetLogin()
+	commentID := event.GetComment().GetID()
 	body := event.GetComment().GetBody()
 
-	if strings.HasSuffix(author, "[bot]") {
-		logger.Debug().Msg("Issue comment was created by a bot")
+	if !strings.HasPrefix(author, targetAuthor) {
+		logger.Debug().Msg(fmt.Sprintf("Issue comment was not created by the user: %s", targetAuthor))
 		return nil
 	}
 
-	logger.Debug().Msgf("Echoing comment on %s/%s#%d by %s", repoOwner, repoName, prNum, author)
-	msg := fmt.Sprintf("%s\n%s said\n```\n%s\n```\n", h.preamble, author, body)
-	prComment := github.IssueComment{
-		Body: &msg,
+	// fetch the prow URL
+	r, _ := regexp.Compile(`(https:\/\/prow.ci.openshift.org\/view\/gs\/origin-ci-test\/pr-logs\/pull.*)\)`)
+	prowJobURL := r.FindStringSubmatch(body)[1]
+
+	// process the test failures from the prow URL
+	cfg := prow.ScannerConfig{
+		ProwJobURL:      prowJobURL,
+		FileNameFilter: []string{junitFilename}, // cross check its targets only the junit.xml within the ....
 	}
 
-	if _, _, err := client.Issues.CreateComment(ctx, repoOwner, repoName, prNum, &prComment); err != nil {
-		logger.Error().Err(err).Msg("Failed to comment on pull request")
+	scanner, err := prow.NewArtifactScanner(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to initialize artifact scanner: %+v", err)
+	}
+
+	if err := scanner.Run(); err != nil {
+		return fmt.Errorf("failed to scan artifacts for prow job %s: %+v", prowJobURL, err)
+	}
+
+	failedTestCasesNames := getFailedTestCases(scanner, logger)
+
+	// Update the comment body with the names of failed testcases
+	if len(failedTestCasesNames) > 0 {
+		logger.Debug().Msgf("Updating comment with ID:%d %s/%s#%d by %s", commentID, repoOwner, repoName, prNum, author)
+
+		msg := "**List of E2E tests that failed in the latest CI run**: \n"
+		for _, testcaseName := range failedTestCasesNames {
+			msg = msg + fmt.Sprintf("\n* %s\n", testcaseName)
+		}
+		msg = msg + "\n-------------------------------\n\n" + body
+
+		prComment := github.IssueComment{
+			Body: &msg,
+		}
+
+		err := wait.PollUntilContextTimeout(context.Background(), 3*time.Second, 10*time.Minute, true, func(context.Context) (done bool, err error) {
+			if _, _, err := client.Issues.EditComment(ctx, repoOwner, repoName, commentID, &prComment); err != nil {
+				logger.Error().Err(err).Msg("Failed to edit comment...retrying")
+				return false, nil
+			}
+
+			return true, nil
+		})
+
+		if err != nil {
+			logger.Error().Err(err).Msg(fmt.Sprintf("Failed to edit comment, will stop processing this comment with ID: %v", commentID))
+		}
 	}
 
 	return nil
+}
+
+func getFailedTestCases(scanner *prow.ArtifactScanner, logger zerolog.Logger) []string {
+	failedTestCasesNames := []string{}
+
+	overallJUnitSuites := &reporters.JUnitTestSuites{}
+	openshiftCiJunit := reporters.JUnitTestSuite{Name: "openshift-ci job", Properties: reporters.JUnitProperties{Properties: []reporters.JUnitProperty{}}}
+
+	for _, artifactsFilenameMap := range scanner.ArtifactStepMap {
+		for artifactFilename, artifact := range artifactsFilenameMap {
+			if strings.Contains(string(artifactFilename), ".xml") {
+				logger.Debug().Msgf("Processing file name: %s", artifactFilename)
+				if err := xml.Unmarshal([]byte(artifact.Content), overallJUnitSuites); err != nil {
+					logger.Error().Err(err).Msg("cannot decode JUnit suite into xml")
+				}
+			}
+		}
+	}
+
+	overallJUnitSuites.TestSuites = append(overallJUnitSuites.TestSuites, openshiftCiJunit)
+	overallJUnitSuites.Failures += openshiftCiJunit.Failures
+	overallJUnitSuites.Errors += openshiftCiJunit.Errors
+	overallJUnitSuites.Tests += openshiftCiJunit.Tests
+
+	for _, s := range overallJUnitSuites.TestSuites {
+		if s.Failures > 0 || s.Errors > 0 {
+			for _, c := range s.TestCases {
+				if c.Failure != nil || c.Error != nil {
+					logger.Debug().Msgf("Failed Test Case name: %s", c.Name)
+					failedTestCasesNames = append(failedTestCasesNames, c.Name)
+				}
+			}
+		}
+	}
+
+	return failedTestCasesNames
 }

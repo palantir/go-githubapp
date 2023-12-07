@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	DefaultWebhookRoute string = "/api/github/hook"
+	DefaultWebhookRoute string = "/"
 )
 
 type EventHandler interface {
