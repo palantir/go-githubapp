@@ -35,11 +35,10 @@ import (
 
 const (
 	targetAuthor  = "dheerajodha"
-	buildLogFilename = "build-log.txt"
-	finishedFilename = "finished.json"
-	junitFilename = `/(j?unit|e2e).*\.xml`
-
-	gcsBrowserURLPrefix = "https://gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com/gcs/origin-ci-test/"
+	junitFilename = `/(j?unit).*\.xml`
+	openshiftCITestSuiteName = "openshift-ci job"
+	e2eTestSuiteName = "Red Hat App Studio E2E tests"
+	regexToFetchProwURL = `(https:\/\/prow.ci.openshift.org\/view\/gs\/test-platform-results\/pr-logs\/pull.*)\)`
 )
 
 type PRCommentHandler struct {
@@ -91,8 +90,13 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 	}
 
 	// fetch the prow URL
-	r, _ := regexp.Compile(`(https:\/\/prow.ci.openshift.org\/view\/gs\/origin-ci-test\/pr-logs\/pull.*)\)`)
-	prowJobURL := r.FindStringSubmatch(body)[1]
+	r, _ := regexp.Compile(regexToFetchProwURL)
+	sliceOfMatchingString := r.FindStringSubmatch(body)
+	if sliceOfMatchingString == nil {
+		return fmt.Errorf("regex string %s found no match for the string: %s", regexToFetchProwURL, body)
+	}
+	prowJobURL := sliceOfMatchingString[1]
+	logger.Debug().Msgf("Prow Job's URL: %s", prowJobURL)
 
 	// process the test failures from the prow URL
 	cfg := prow.ScannerConfig{
@@ -146,30 +150,30 @@ func getFailedTestCases(scanner *prow.ArtifactScanner, logger zerolog.Logger) []
 	failedTestCasesNames := []string{}
 
 	overallJUnitSuites := &reporters.JUnitTestSuites{}
-	openshiftCiJunit := reporters.JUnitTestSuite{Name: "openshift-ci job", Properties: reporters.JUnitProperties{Properties: []reporters.JUnitProperty{}}}
 
 	for _, artifactsFilenameMap := range scanner.ArtifactStepMap {
 		for artifactFilename, artifact := range artifactsFilenameMap {
-			if strings.Contains(string(artifactFilename), ".xml") {
+			if artifactFilename == "junit.xml" {
 				logger.Debug().Msgf("Processing file name: %s", artifactFilename)
 				if err := xml.Unmarshal([]byte(artifact.Content), overallJUnitSuites); err != nil {
 					logger.Error().Err(err).Msg("cannot decode JUnit suite into xml")
+				}
+				logger.Debug().Msgf(fmt.Sprintf("%s", overallJUnitSuites))
+
+				if len(overallJUnitSuites.TestSuites) == 1 && overallJUnitSuites.TestSuites[0].Name == openshiftCITestSuiteName {
+					logger.Error().Msg(fmt.Sprintf("junit.xml only contains 1 TestSuite with name: %s", openshiftCITestSuiteName))
+					return append(failedTestCasesNames, "Test Job failed during the Setup phase")
 				}
 			}
 		}
 	}
 
-	overallJUnitSuites.TestSuites = append(overallJUnitSuites.TestSuites, openshiftCiJunit)
-	overallJUnitSuites.Failures += openshiftCiJunit.Failures
-	overallJUnitSuites.Errors += openshiftCiJunit.Errors
-	overallJUnitSuites.Tests += openshiftCiJunit.Tests
-
-	for _, s := range overallJUnitSuites.TestSuites {
-		if s.Failures > 0 || s.Errors > 0 {
-			for _, c := range s.TestCases {
-				if c.Failure != nil || c.Error != nil {
-					logger.Debug().Msgf("Failed Test Case name: %s", c.Name)
-					failedTestCasesNames = append(failedTestCasesNames, c.Name)
+	for _, testSuite := range overallJUnitSuites.TestSuites {
+		if testSuite.Name == e2eTestSuiteName && (testSuite.Failures > 0 || testSuite.Errors > 0) {
+			for _, testCase := range testSuite.TestCases {
+				if testCase.Failure != nil || testCase.Error != nil {
+					logger.Debug().Msgf("Failed Test Case name: %s", testCase.Name)
+					failedTestCasesNames = append(failedTestCasesNames, testCase.Name)
 				}
 			}
 		}
