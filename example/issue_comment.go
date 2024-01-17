@@ -29,22 +29,30 @@ import (
 	"github.com/redhat-appstudio/qe-tools/pkg/prow"
 	"github.com/rs/zerolog"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 
 	reporters "github.com/onsi/ginkgo/v2/reporters"
 )
 
 const (
-	targetAuthor  = "dheerajodha"
-	junitFilename = `/(j?unit).*\.xml`
+	targetAuthor             = "dheerajodha"
+	junitFilename            = "junit.xml"
+	junitFilenameRegex       = `(junit.xml)`
 	openshiftCITestSuiteName = "openshift-ci job"
-	e2eTestSuiteName = "Red Hat App Studio E2E tests"
-	regexToFetchProwURL = `(https:\/\/prow.ci.openshift.org\/view\/gs\/test-platform-results\/pr-logs\/pull.*)\)`
+	e2eTestSuiteName         = "Red Hat App Studio E2E tests"
+	regexToFetchProwURL      = `(https:\/\/prow.ci.openshift.org\/view\/gs\/test-platform-results\/pr-logs\/pull.*)\)`
 )
 
 type PRCommentHandler struct {
 	githubapp.ClientCreator
 
 	preamble string
+}
+
+type FailedTestCasesReport struct {
+	headerString        string
+	failedTestCaseNames     []string
+	hasBootstrapFailure bool
 }
 
 func (h *PRCommentHandler) Handles() []string {
@@ -57,73 +65,152 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 		return errors.Wrap(err, "failed to parse issue comment event payload")
 	}
 
-	if !event.GetIssue().IsPullRequest() {
-		zerolog.Ctx(ctx).Debug().Msg("Issue comment event is not for a pull request")
+	if !event.GetIssue().IsPullRequest() || event.GetAction() != "created" {
 		return nil
 	}
 
-	repo := event.GetRepo()
-	prNum := event.GetIssue().GetNumber()
 	installationID := githubapp.GetInstallationIDFromEvent(&event)
 
-	ctx, logger := githubapp.PreparePRContext(ctx, installationID, repo, event.GetIssue().GetNumber())
-
-	logger.Debug().Msgf("Event action is %s", event.GetAction())
-	if event.GetAction() != "created" {
-		return nil
-	}
+	ctx, logger := githubapp.PreparePRContext(ctx, installationID, event.GetRepo(), event.GetIssue().GetNumber())
 
 	client, err := h.NewInstallationClient(installationID)
 	if err != nil {
 		return err
 	}
 
-	repoOwner := repo.GetOwner().GetLogin()
-	repoName := repo.GetName()
 	author := event.GetComment().GetUser().GetLogin()
-	commentID := event.GetComment().GetID()
 	body := event.GetComment().GetBody()
 
 	if !strings.HasPrefix(author, targetAuthor) {
-		logger.Debug().Msg(fmt.Sprintf("Issue comment was not created by the user: %s", targetAuthor))
+		klog.Infof("Issue comment was not created by the user: %s. Ignoring this comment", targetAuthor)
 		return nil
 	}
 
-	// fetch the prow URL
-	r, _ := regexp.Compile(regexToFetchProwURL)
-	sliceOfMatchingString := r.FindStringSubmatch(body)
-	if sliceOfMatchingString == nil {
-		return fmt.Errorf("regex string %s found no match for the string: %s", regexToFetchProwURL, body)
+	// extract the prow URL
+	prowJobURL, err := extractProwJobURLFromCommentBody(logger, body)
+	if err != nil {
+		return fmt.Errorf("unable to extract Prow job's URL from the PR comment's body: %+v", err)
 	}
-	prowJobURL := sliceOfMatchingString[1]
-	logger.Debug().Msgf("Prow Job's URL: %s", prowJobURL)
 
-	// process the test failures from the prow URL
 	cfg := prow.ScannerConfig{
-		ProwJobURL:      prowJobURL,
-		FileNameFilter: []string{junitFilename}, // cross check its targets only the junit.xml within the ....
+		ProwJobURL:     prowJobURL,
+		FileNameFilter: []string{junitFilenameRegex},
 	}
 
 	scanner, err := prow.NewArtifactScanner(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to initialize artifact scanner: %+v", err)
+		return fmt.Errorf("failed to initialize ArtifactScanner: %+v", err)
 	}
 
-	if err := scanner.Run(); err != nil {
-		return fmt.Errorf("failed to scan artifacts for prow job %s: %+v", prowJobURL, err)
-	}
-
-	failedTestCasesNames := getFailedTestCases(scanner, logger)
-
-	// Update the comment body with the names of failed testcases
-	if len(failedTestCasesNames) > 0 {
-		logger.Debug().Msgf("Updating comment with ID:%d %s/%s#%d by %s", commentID, repoOwner, repoName, prNum, author)
-
-		msg := "**List of E2E tests that failed in the latest CI run**: \n"
-		for _, testcaseName := range failedTestCasesNames {
-			msg = msg + fmt.Sprintf("\n* %s\n", testcaseName)
+	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 3*time.Minute, true, func(context.Context) (done bool, err error) {
+		if err := scanner.Run(); err != nil {
+			klog.Errorf("Failed to scan artifacts from the prow job due to the error: %+v...Retrying", err)
+			return false, nil
 		}
-		msg = msg + "\n-------------------------------\n\n" + body
+
+		return true, nil
+	})
+	if err != nil {
+		logger.Error().Err(err).Msgf("Timed out while scanning artifacts for prow job %s: %+v. Will Stop processing this comment", prowJobURL, err)
+		return err
+	}
+
+	overallJUnitSuites, err := getTestSuitesFromXMLFile(scanner, logger, junitFilename)
+	if err != nil {
+		return fmt.Errorf("failed to get JUnitTestSuites from the file %s: %+v", junitFilename, err)
+	}
+
+	failedTCReport := setHeaderString(logger, overallJUnitSuites)
+	failedTCReport.getFailedTestCases(logger, overallJUnitSuites)
+
+	failedTCReport.updateCommentWithFailedTestCasesReport(ctx, logger, client, event, body)
+
+	return nil
+}
+
+// extractProwJobURLFromCommentBody extracts the
+// prow job's URL from the given PR comment's body
+func extractProwJobURLFromCommentBody(logger zerolog.Logger, commentBody string) (string, error) {
+	r, _ := regexp.Compile(regexToFetchProwURL)
+	sliceOfMatchingString := r.FindStringSubmatch(commentBody)
+	if sliceOfMatchingString == nil {
+		return "", fmt.Errorf("regex string %s found no matches for the comment body: %s", regexToFetchProwURL, commentBody)
+	}
+	prowJobURL := sliceOfMatchingString[1]
+	logger.Debug().Msgf("Prow Job's URL: %s", prowJobURL)
+
+	return prowJobURL, nil
+}
+
+// getTestSuitesFromXMLFile returns all the JUnitTestSuites
+// present within a file with the given name
+func getTestSuitesFromXMLFile(scanner *prow.ArtifactScanner, logger zerolog.Logger, filename string) (*reporters.JUnitTestSuites, error) {
+	overallJUnitSuites := &reporters.JUnitTestSuites{}
+
+	for _, artifactsFilenameMap := range scanner.ArtifactStepMap {
+		for artifactFilename, artifact := range artifactsFilenameMap {
+			if string(artifactFilename) == filename {
+				if err := xml.Unmarshal([]byte(artifact.Content), overallJUnitSuites); err != nil {
+					logger.Error().Err(err).Msg("cannot decode JUnit suite into xml")
+					return &reporters.JUnitTestSuites{}, err
+				}
+				return overallJUnitSuites, nil
+			}
+		}
+	}
+
+	return &reporters.JUnitTestSuites{}, fmt.Errorf("couldn't find the %s file", filename)
+}
+
+// setHeaderString initialises struct FailedTestCasesReport's
+// 'headerString' field based on phase at which prow job failed
+func setHeaderString(logger zerolog.Logger, overallJUnitSuites *reporters.JUnitTestSuites) *FailedTestCasesReport {
+	failedTCReport := FailedTestCasesReport{}
+
+	if len(overallJUnitSuites.TestSuites) == 1 && overallJUnitSuites.TestSuites[0].Name == openshiftCITestSuiteName {
+		logger.Debug().Msg("The given prow job failed during bootstrapping the cluster")
+		failedTCReport.hasBootstrapFailure = true
+		failedTCReport.headerString = ":rotating_light: **Error occurred during the cluster's Bootstrapping phase, list of failed Spec(s)**: \n"
+	} else {
+		failedTCReport.headerString = ":rotating_light: **Error occurred while running the E2E tests, list of failed Spec(s)**: \n"
+	}
+
+	return &failedTCReport
+}
+
+// getFailedTestCases initialises struct FailedTestCasesReport's
+// 'failedTestCaseNames' field with the names of failed test cases
+// within the given JUnitTestSuites
+func (failedTCReport *FailedTestCasesReport) getFailedTestCases(logger zerolog.Logger, overallJUnitSuites *reporters.JUnitTestSuites) {
+	for _, testSuite := range overallJUnitSuites.TestSuites {
+		if failedTCReport.hasBootstrapFailure || (testSuite.Name == e2eTestSuiteName && (testSuite.Failures > 0 || testSuite.Errors > 0)) {
+			for _, tc := range testSuite.TestCases {
+				if tc.Failure != nil || tc.Error != nil {
+					logger.Debug().Msgf("Found a failed Test Case (suiteName/testCaseName): %s/%s", testSuite.Name, tc.Name)
+					failedTCReport.failedTestCaseNames = append(failedTCReport.failedTestCaseNames, ":arrow_right: "+"[**`"+tc.Status+"`**] "+tc.Name)
+				}
+			}
+		}
+	}
+}
+
+// updateCommentWithFailedTestCasesReport updates the
+// PR comment's body with the names of failed test cases
+func (failedTCReport *FailedTestCasesReport) updateCommentWithFailedTestCasesReport(ctx context.Context, logger zerolog.Logger, client *github.Client, event github.IssueCommentEvent, commentBody string) {
+	repoOwner := event.GetRepo().GetOwner().GetLogin()
+	repoName := event.GetRepo().GetName()
+	author := event.GetComment().GetUser().GetLogin()
+	commentID := event.GetComment().GetID()
+	prNum := event.GetIssue().GetNumber()
+
+	if len(failedTCReport.failedTestCaseNames) > 0 {
+		klog.Infof("Updating comment with ID:%d, within the PR: '%s/%s#%d' by %s", commentID, repoOwner, repoName, prNum, author)
+
+		msg := failedTCReport.headerString
+		for _, failedTCName := range failedTCReport.failedTestCaseNames {
+			msg = msg + fmt.Sprintf("\n* %s\n", failedTCName)
+		}
+		msg = msg + "\n-------------------------------\n\n" + commentBody
 
 		prComment := github.IssueComment{
 			Body: &msg,
@@ -131,7 +218,7 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 
 		err := wait.PollUntilContextTimeout(context.Background(), 3*time.Second, 10*time.Minute, true, func(context.Context) (done bool, err error) {
 			if _, _, err := client.Issues.EditComment(ctx, repoOwner, repoName, commentID, &prComment); err != nil {
-				logger.Error().Err(err).Msg("Failed to edit comment...retrying")
+				logger.Error().Err(err).Msgf("Failed to edit comment due to the error: %+v...Retrying", err)
 				return false, nil
 			}
 
@@ -139,45 +226,9 @@ func (h *PRCommentHandler) Handle(ctx context.Context, eventType, deliveryID str
 		})
 
 		if err != nil {
-			logger.Error().Err(err).Msg(fmt.Sprintf("Failed to edit comment, will stop processing this comment with ID: %v", commentID))
+			logger.Error().Err(err).Msgf("Failed to edit comment (ID: %v) due to the error: %+v. Will Stop processing this comment", commentID, err)
 		}
+
+		logger.Error().Err(err).Msgf("Successfully updated comment (with ID:%d) with the names of failed test cases", commentID)
 	}
-
-	return nil
-}
-
-func getFailedTestCases(scanner *prow.ArtifactScanner, logger zerolog.Logger) []string {
-	failedTestCasesNames := []string{}
-
-	overallJUnitSuites := &reporters.JUnitTestSuites{}
-
-	for _, artifactsFilenameMap := range scanner.ArtifactStepMap {
-		for artifactFilename, artifact := range artifactsFilenameMap {
-			if artifactFilename == "junit.xml" {
-				logger.Debug().Msgf("Processing file name: %s", artifactFilename)
-				if err := xml.Unmarshal([]byte(artifact.Content), overallJUnitSuites); err != nil {
-					logger.Error().Err(err).Msg("cannot decode JUnit suite into xml")
-				}
-				logger.Debug().Msgf(fmt.Sprintf("%s", overallJUnitSuites))
-
-				if len(overallJUnitSuites.TestSuites) == 1 && overallJUnitSuites.TestSuites[0].Name == openshiftCITestSuiteName {
-					logger.Error().Msg(fmt.Sprintf("junit.xml only contains 1 TestSuite with name: %s", openshiftCITestSuiteName))
-					return append(failedTestCasesNames, "Test Job failed during the Setup phase")
-				}
-			}
-		}
-	}
-
-	for _, testSuite := range overallJUnitSuites.TestSuites {
-		if testSuite.Name == e2eTestSuiteName && (testSuite.Failures > 0 || testSuite.Errors > 0) {
-			for _, testCase := range testSuite.TestCases {
-				if testCase.Failure != nil || testCase.Error != nil {
-					logger.Debug().Msgf("Failed Test Case name: %s", testCase.Name)
-					failedTestCasesNames = append(failedTestCasesNames, testCase.Name)
-				}
-			}
-		}
-	}
-
-	return failedTestCasesNames
 }
