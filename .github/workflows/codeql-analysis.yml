@@ -41,6 +41,7 @@ jobs:
       with:
         go-version: ${{ steps.go_version.outputs.version }}
 
+    # testing if Autobuild actually works
     - name: Autobuild for CodeQL
       uses: github/codeql-action/autobuild@v3
 
