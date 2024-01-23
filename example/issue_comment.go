@@ -198,7 +198,10 @@ func (failedTCReport *FailedTestCasesReport) extractFailedTestCases(logger zerol
 				if tc.Failure != nil || tc.Error != nil {
 					logger.Debug().Msgf("Found a Test Case (suiteName/testCaseName): %s/%s, that didn't pass", testSuite.Name, tc.Name)
 					tcMessage := ""
-					if (tc.Failure != nil) {
+					if failedTCReport.hasBootstrapFailure {
+						systemErrString := strings.Split(tc.SystemErr, "\n")
+						tcMessage = strings.Join(systemErrString[len(systemErrString)-16:], "\n")
+					} else if (tc.Failure != nil) {
 						tcMessage = tc.Failure.Message
 					} else {
 						tcMessage = tc.Error.Message
@@ -236,7 +239,7 @@ func (failedTCReport *FailedTestCasesReport) updateCommentWithFailedTestCasesRep
 
 	err := wait.PollUntilContextTimeout(context.Background(), 3*time.Second, 10*time.Minute, true, func(context.Context) (done bool, err error) {
 		if _, _, err := client.Issues.EditComment(ctx, repoOwner, repoName, commentID, &prComment); err != nil {
-			logger.Error().Err(err).Msgf("Failed to edit comment due to the error: %+v...Retrying", err)
+			logger.Error().Err(err).Msgf("Failed to edit the comment...Retrying")
 			return false, nil
 		}
 
@@ -247,5 +250,5 @@ func (failedTCReport *FailedTestCasesReport) updateCommentWithFailedTestCasesRep
 		logger.Error().Err(err).Msgf("Failed to edit comment (ID: %v) due to the error: %+v. Will Stop processing this comment", commentID, err)
 	}
 
-	logger.Error().Err(err).Msgf("Successfully updated comment (with ID:%d) with the names of failed test cases", commentID)
+	logger.Debug().Msgf("Successfully updated comment (with ID:%d) with the names of failed test cases", commentID)
 }
