@@ -10,7 +10,7 @@ on:
     branches: [develop]
 
 jobs:
-  Verify:
+  ci-all:
     runs-on: ubuntu-latest
 
     env:
