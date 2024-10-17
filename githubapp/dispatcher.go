@@ -185,7 +185,7 @@ func (d *eventDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Debug().Msgf("Received webhook event")
+	logger.Trace().Msgf("Received webhook event")
 
 	handler, ok := d.handlerMap[eventType]
 	if ok {
