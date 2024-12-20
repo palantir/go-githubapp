@@ -267,7 +267,11 @@ func getOrganizationClient(cc githubapp.ClientCreator, org string) (*github.Clie
 
     // look up the installation ID for a particular organization
     installations := githubapp.NewInstallationsService(appClient)
-    install := installations.GetByOwner(context.Background(), org)
+
+    install, err := installations.GetByOwner(context.Background(), org)
+    if err != nil {
+        return nil, err
+    }
 
     // create a client to perform actions on that specific organization
     return cc.NewInstallationClient(install.ID)
