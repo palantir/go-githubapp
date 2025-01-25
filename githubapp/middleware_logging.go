@@ -19,10 +19,19 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/gregjones/httpcache"
 	"github.com/rs/zerolog"
+)
+
+const (
+	headerRateLimit     = "X-Ratelimit-Limit"
+	headerRateRemaining = "X-Ratelimit-Remaining"
+	headerRateUsed      = "X-Ratelimit-Used"
+	headerRateReset     = "X-Ratelimit-Reset"
+	headerRateResource  = "X-Ratelimit-Resource"
 )
 
 // ClientLogging creates client middleware that logs request and response
@@ -83,6 +92,10 @@ func ClientLogging(lvl zerolog.Level, opts ...ClientLoggingOption) ClientMiddlew
 					Int64("size", -1)
 			}
 
+			if options.LogRateLimitInformation {
+				addRateLimitInformationToLog(evt, res)
+			}
+
 			evt.Msg("github_request")
 			return res, err
 		})
@@ -95,6 +108,9 @@ type ClientLoggingOption func(*clientLoggingOptions)
 type clientLoggingOptions struct {
 	RequestBodyPatterns  []*regexp.Regexp
 	ResponseBodyPatterns []*regexp.Regexp
+
+	// Output control
+	LogRateLimitInformation bool
 }
 
 // LogRequestBody enables request body logging for requests to paths matching
@@ -114,6 +130,22 @@ func LogResponseBody(patterns ...string) ClientLoggingOption {
 	regexps := compileRegexps(patterns)
 	return func(opts *clientLoggingOptions) {
 		opts.ResponseBodyPatterns = regexps
+	}
+}
+
+// EnableRateLimitInformation enables logging of rate limit information like
+// the number of requests remaining in the current rate limit window.
+func EnableRateLimitInformation() ClientLoggingOption {
+	return func(opts *clientLoggingOptions) {
+		opts.LogRateLimitInformation = true
+	}
+}
+
+// DisableRateLimitInformation disables logging of rate limit information like
+// the number of requests remaining in the current rate limit window.
+func DisableRateLimitInformation() ClientLoggingOption {
+	return func(opts *clientLoggingOptions) {
+		opts.LogRateLimitInformation = false
 	}
 }
 
@@ -173,4 +205,27 @@ func requestMatches(r *http.Request, pats []*regexp.Regexp) bool {
 
 func closeBody(b io.ReadCloser) {
 	_ = b.Close() // per http.Transport impl, ignoring close errors is fine
+}
+
+func addRateLimitInformationToLog(evt *zerolog.Event, res *http.Response) {
+	if limitHeader := res.Header.Get(headerRateLimit); limitHeader != "" {
+		limit, _ := strconv.Atoi(limitHeader)
+		evt.Int("ratelimit-limit", limit)
+	}
+	if remainingHeader := res.Header.Get(headerRateRemaining); remainingHeader != "" {
+		remaining, _ := strconv.Atoi(remainingHeader)
+		evt.Int("ratelimit-remaining", remaining)
+	}
+	if usedHeader := res.Header.Get(headerRateUsed); usedHeader != "" {
+		used, _ := strconv.Atoi(usedHeader)
+		evt.Int("ratelimit-used", used)
+	}
+	if resetHeader := res.Header.Get(headerRateReset); resetHeader != "" {
+		if v, _ := strconv.ParseInt(resetHeader, 10, 64); v != 0 {
+			evt.Time("ratelimit-reset", time.Unix(v, 0))
+		}
+	}
+	if resourceHeader := res.Header.Get(headerRateResource); resourceHeader != "" {
+		evt.Str("ratelimit-resource", resourceHeader)
+	}
 }
