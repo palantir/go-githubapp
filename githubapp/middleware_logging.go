@@ -27,11 +27,11 @@ import (
 )
 
 const (
-	headerRateLimit     = "X-Ratelimit-Limit"
-	headerRateRemaining = "X-Ratelimit-Remaining"
-	headerRateUsed      = "X-Ratelimit-Used"
-	headerRateReset     = "X-Ratelimit-Reset"
-	headerRateResource  = "X-Ratelimit-Resource"
+	HTTPHeaderRateLimit     = "X-Ratelimit-Limit"
+	HTTPHeaderRateRemaining = "X-Ratelimit-Remaining"
+	HTTPHeaderRateUsed      = "X-Ratelimit-Used"
+	HTTPHeaderRateReset     = "X-Ratelimit-Reset"
+	HTTPHeaderRateResource  = "X-Ratelimit-Resource"
 )
 
 // ClientLogging creates client middleware that logs request and response
@@ -208,24 +208,24 @@ func closeBody(b io.ReadCloser) {
 }
 
 func addRateLimitInformationToLog(evt *zerolog.Event, res *http.Response) {
-	if limitHeader := res.Header.Get(headerRateLimit); limitHeader != "" {
+	if limitHeader := res.Header.Get(HTTPHeaderRateLimit); limitHeader != "" {
 		limit, _ := strconv.Atoi(limitHeader)
 		evt.Int("ratelimit-limit", limit)
 	}
-	if remainingHeader := res.Header.Get(headerRateRemaining); remainingHeader != "" {
+	if remainingHeader := res.Header.Get(HTTPHeaderRateRemaining); remainingHeader != "" {
 		remaining, _ := strconv.Atoi(remainingHeader)
 		evt.Int("ratelimit-remaining", remaining)
 	}
-	if usedHeader := res.Header.Get(headerRateUsed); usedHeader != "" {
+	if usedHeader := res.Header.Get(HTTPHeaderRateUsed); usedHeader != "" {
 		used, _ := strconv.Atoi(usedHeader)
 		evt.Int("ratelimit-used", used)
 	}
-	if resetHeader := res.Header.Get(headerRateReset); resetHeader != "" {
+	if resetHeader := res.Header.Get(HTTPHeaderRateReset); resetHeader != "" {
 		if v, _ := strconv.ParseInt(resetHeader, 10, 64); v != 0 {
 			evt.Time("ratelimit-reset", time.Unix(v, 0))
 		}
 	}
-	if resourceHeader := res.Header.Get(headerRateResource); resourceHeader != "" {
+	if resourceHeader := res.Header.Get(HTTPHeaderRateResource); resourceHeader != "" {
 		evt.Str("ratelimit-resource", resourceHeader)
 	}
 }
