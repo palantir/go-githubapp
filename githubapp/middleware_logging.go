@@ -92,10 +92,7 @@ func ClientLogging(lvl zerolog.Level, opts ...ClientLoggingOption) ClientMiddlew
 					Int64("size", -1)
 			}
 
-			if options.LogRateLimitInformation {
-				addRateLimitInformationToLog(evt, res)
-			}
-
+			addRateLimitInformationToLog(options.LogRateLimitInformation, evt, res)
 			evt.Msg("github_request")
 			return res, err
 		})
@@ -110,7 +107,16 @@ type clientLoggingOptions struct {
 	ResponseBodyPatterns []*regexp.Regexp
 
 	// Output control
-	LogRateLimitInformation bool
+	LogRateLimitInformation *RateLimitLoggingOption
+}
+
+// RateLimitLoggingOption controls which rate limit information is logged.
+type RateLimitLoggingOption struct {
+	Limit     bool
+	Remaining bool
+	Used      bool
+	Reset     bool
+	Resource  bool
 }
 
 // LogRequestBody enables request body logging for requests to paths matching
@@ -133,19 +139,11 @@ func LogResponseBody(patterns ...string) ClientLoggingOption {
 	}
 }
 
-// EnableRateLimitInformation enables logging of rate limit information like
-// the number of requests remaining in the current rate limit window.
-func EnableRateLimitInformation() ClientLoggingOption {
+// SetRateLimitInformation defines which rate limit information like
+// the number of requests remaining in the current rate limit window is getting logged.
+func SetRateLimitInformation(options *RateLimitLoggingOption) ClientLoggingOption {
 	return func(opts *clientLoggingOptions) {
-		opts.LogRateLimitInformation = true
-	}
-}
-
-// DisableRateLimitInformation disables logging of rate limit information like
-// the number of requests remaining in the current rate limit window.
-func DisableRateLimitInformation() ClientLoggingOption {
-	return func(opts *clientLoggingOptions) {
-		opts.LogRateLimitInformation = false
+		opts.LogRateLimitInformation = options
 	}
 }
 
@@ -207,25 +205,25 @@ func closeBody(b io.ReadCloser) {
 	_ = b.Close() // per http.Transport impl, ignoring close errors is fine
 }
 
-func addRateLimitInformationToLog(evt *zerolog.Event, res *http.Response) {
-	if limitHeader := res.Header.Get(HTTPHeaderRateLimit); limitHeader != "" {
+func addRateLimitInformationToLog(loggingOptions *RateLimitLoggingOption, evt *zerolog.Event, res *http.Response) {
+	if limitHeader := res.Header.Get(HTTPHeaderRateLimit); loggingOptions.Limit && limitHeader != "" {
 		limit, _ := strconv.Atoi(limitHeader)
 		evt.Int("ratelimit-limit", limit)
 	}
-	if remainingHeader := res.Header.Get(HTTPHeaderRateRemaining); remainingHeader != "" {
+	if remainingHeader := res.Header.Get(HTTPHeaderRateRemaining); loggingOptions.Remaining && remainingHeader != "" {
 		remaining, _ := strconv.Atoi(remainingHeader)
 		evt.Int("ratelimit-remaining", remaining)
 	}
-	if usedHeader := res.Header.Get(HTTPHeaderRateUsed); usedHeader != "" {
+	if usedHeader := res.Header.Get(HTTPHeaderRateUsed); loggingOptions.Used && usedHeader != "" {
 		used, _ := strconv.Atoi(usedHeader)
 		evt.Int("ratelimit-used", used)
 	}
-	if resetHeader := res.Header.Get(HTTPHeaderRateReset); resetHeader != "" {
+	if resetHeader := res.Header.Get(HTTPHeaderRateReset); loggingOptions.Reset && resetHeader != "" {
 		if v, _ := strconv.ParseInt(resetHeader, 10, 64); v != 0 {
 			evt.Time("ratelimit-reset", time.Unix(v, 0))
 		}
 	}
-	if resourceHeader := res.Header.Get(HTTPHeaderRateResource); resourceHeader != "" {
+	if resourceHeader := res.Header.Get(HTTPHeaderRateResource); loggingOptions.Resource && resourceHeader != "" {
 		evt.Str("ratelimit-resource", resourceHeader)
 	}
 }
