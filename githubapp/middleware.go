@@ -75,8 +75,8 @@ func ClientMetrics(registry metrics.Registry) ClientMiddleware {
 				remainingMetric := fmt.Sprintf("%s[installation:%d]", MetricsKeyRateLimitRemaining, installationID)
 
 				// Headers from https://developer.github.com/v3/#rate-limiting
-				updateRegistryForHeader(res.Header, "X-RateLimit-Limit", metrics.GetOrRegisterGauge(limitMetric, registry))
-				updateRegistryForHeader(res.Header, "X-RateLimit-Remaining", metrics.GetOrRegisterGauge(remainingMetric, registry))
+				updateRegistryForHeader(res.Header, HTTPHeaderRateLimit, metrics.GetOrRegisterGauge(limitMetric, registry))
+				updateRegistryForHeader(res.Header, HTTPHeaderRateRemaining, metrics.GetOrRegisterGauge(remainingMetric, registry))
 			}
 
 			return res, err
