@@ -206,6 +206,11 @@ func closeBody(b io.ReadCloser) {
 }
 
 func addRateLimitInformationToLog(loggingOptions *RateLimitLoggingOption, evt *zerolog.Event, res *http.Response) {
+	// Exit early if no rate limit information is requested
+	if loggingOptions == nil {
+		return
+	}
+
 	if limitHeader := res.Header.Get(httpHeaderRateLimit); loggingOptions.Limit && limitHeader != "" {
 		limit, _ := strconv.Atoi(limitHeader)
 		evt.Int("ratelimit-limit", limit)
