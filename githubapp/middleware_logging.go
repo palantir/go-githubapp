@@ -27,11 +27,11 @@ import (
 )
 
 const (
-	HTTPHeaderRateLimit     = "X-Ratelimit-Limit"
-	HTTPHeaderRateRemaining = "X-Ratelimit-Remaining"
-	HTTPHeaderRateUsed      = "X-Ratelimit-Used"
-	HTTPHeaderRateReset     = "X-Ratelimit-Reset"
-	HTTPHeaderRateResource  = "X-Ratelimit-Resource"
+	httpHeaderRateLimit     = "X-Ratelimit-Limit"
+	httpHeaderRateRemaining = "X-Ratelimit-Remaining"
+	httpHeaderRateUsed      = "X-Ratelimit-Used"
+	httpHeaderRateReset     = "X-Ratelimit-Reset"
+	httpHeaderRateResource  = "X-Ratelimit-Resource"
 )
 
 // ClientLogging creates client middleware that logs request and response
@@ -206,24 +206,24 @@ func closeBody(b io.ReadCloser) {
 }
 
 func addRateLimitInformationToLog(loggingOptions *RateLimitLoggingOption, evt *zerolog.Event, res *http.Response) {
-	if limitHeader := res.Header.Get(HTTPHeaderRateLimit); loggingOptions.Limit && limitHeader != "" {
+	if limitHeader := res.Header.Get(httpHeaderRateLimit); loggingOptions.Limit && limitHeader != "" {
 		limit, _ := strconv.Atoi(limitHeader)
 		evt.Int("ratelimit-limit", limit)
 	}
-	if remainingHeader := res.Header.Get(HTTPHeaderRateRemaining); loggingOptions.Remaining && remainingHeader != "" {
+	if remainingHeader := res.Header.Get(httpHeaderRateRemaining); loggingOptions.Remaining && remainingHeader != "" {
 		remaining, _ := strconv.Atoi(remainingHeader)
 		evt.Int("ratelimit-remaining", remaining)
 	}
-	if usedHeader := res.Header.Get(HTTPHeaderRateUsed); loggingOptions.Used && usedHeader != "" {
+	if usedHeader := res.Header.Get(httpHeaderRateUsed); loggingOptions.Used && usedHeader != "" {
 		used, _ := strconv.Atoi(usedHeader)
 		evt.Int("ratelimit-used", used)
 	}
-	if resetHeader := res.Header.Get(HTTPHeaderRateReset); loggingOptions.Reset && resetHeader != "" {
+	if resetHeader := res.Header.Get(httpHeaderRateReset); loggingOptions.Reset && resetHeader != "" {
 		if v, _ := strconv.ParseInt(resetHeader, 10, 64); v != 0 {
 			evt.Time("ratelimit-reset", time.Unix(v, 0))
 		}
 	}
-	if resourceHeader := res.Header.Get(HTTPHeaderRateResource); loggingOptions.Resource && resourceHeader != "" {
+	if resourceHeader := res.Header.Get(httpHeaderRateResource); loggingOptions.Resource && resourceHeader != "" {
 		evt.Str("ratelimit-resource", resourceHeader)
 	}
 }
