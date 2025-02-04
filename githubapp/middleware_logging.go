@@ -211,24 +211,27 @@ func addRateLimitInformationToLog(loggingOptions *RateLimitLoggingOption, evt *z
 		return
 	}
 
+	rateLimitDict := zerolog.Dict()
 	if limitHeader := res.Header.Get(httpHeaderRateLimit); loggingOptions.Limit && limitHeader != "" {
 		limit, _ := strconv.Atoi(limitHeader)
-		evt.Int("ratelimit-limit", limit)
+		rateLimitDict.Int("limit", limit)
 	}
 	if remainingHeader := res.Header.Get(httpHeaderRateRemaining); loggingOptions.Remaining && remainingHeader != "" {
 		remaining, _ := strconv.Atoi(remainingHeader)
-		evt.Int("ratelimit-remaining", remaining)
+		rateLimitDict.Int("remaining", remaining)
 	}
 	if usedHeader := res.Header.Get(httpHeaderRateUsed); loggingOptions.Used && usedHeader != "" {
 		used, _ := strconv.Atoi(usedHeader)
-		evt.Int("ratelimit-used", used)
+		rateLimitDict.Int("used", used)
 	}
 	if resetHeader := res.Header.Get(httpHeaderRateReset); loggingOptions.Reset && resetHeader != "" {
 		if v, _ := strconv.ParseInt(resetHeader, 10, 64); v != 0 {
-			evt.Time("ratelimit-reset", time.Unix(v, 0))
+			rateLimitDict.Time("reset", time.Unix(v, 0))
 		}
 	}
 	if resourceHeader := res.Header.Get(httpHeaderRateResource); loggingOptions.Resource && resourceHeader != "" {
-		evt.Str("ratelimit-resource", resourceHeader)
+		rateLimitDict.Str("resource", resourceHeader)
 	}
+
+	evt.Dict("ratelimit", rateLimitDict)
 }
