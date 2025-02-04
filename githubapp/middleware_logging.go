@@ -139,9 +139,9 @@ func LogResponseBody(patterns ...string) ClientLoggingOption {
 	}
 }
 
-// SetRateLimitInformation defines which rate limit information like
+// LogRateLimitInformation defines which rate limit information like
 // the number of requests remaining in the current rate limit window is getting logged.
-func SetRateLimitInformation(options *RateLimitLoggingOption) ClientLoggingOption {
+func LogRateLimitInformation(options *RateLimitLoggingOption) ClientLoggingOption {
 	return func(opts *clientLoggingOptions) {
 		opts.LogRateLimitInformation = options
 	}
