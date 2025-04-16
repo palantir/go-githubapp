@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/google/go-github/v70/github"
+	"github.com/google/go-github/v71/github"
 )
 
 const (
