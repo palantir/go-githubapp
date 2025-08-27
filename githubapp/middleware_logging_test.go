@@ -123,6 +123,27 @@ func TestClientLogging(t *testing.T) {
 			"response_body": missingField,
 		})
 	})
+
+	t.Run("nilRequest", func(t *testing.T) {
+		req, _ := newLoggingRequest("GET", "https://test.domain/path", []byte("The request"))
+		rt := newEmptyRoundTripper()
+
+		logMiddleware := ClientLogging(zerolog.InfoLevel, LogRateLimitInformation(&RateLimitLoggingOption{
+			Limit:     true,
+			Remaining: true,
+			Used:      true,
+			Reset:     true,
+			Resource:  true,
+		}))
+		rt = logMiddleware(rt)
+
+		_, err := rt.RoundTrip(req)
+		if err != nil {
+			t.Fatalf("unexpected error making request: %v", err)
+		}
+
+		// To ensure that this is not crashing
+	})
 }
 
 func newLoggingRequest(method, url string, body []byte) (*http.Request, *bytes.Buffer) {
@@ -155,6 +176,12 @@ func newStaticRoundTripper(status int, body []byte) http.RoundTripper {
 		res.WriteHeader(status)
 		_, _ = res.Write(body)
 		return res.Result(), nil
+	})
+}
+
+func newEmptyRoundTripper() http.RoundTripper {
+	return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		return nil, nil
 	})
 }
 
