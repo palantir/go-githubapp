@@ -31,9 +31,9 @@ func TestPrepareRepoContext(t *testing.T) {
 	ctx := logger.WithContext(context.Background())
 
 	_, logger = PrepareRepoContext(ctx, 42, &github.Repository{
-		Name: github.String("test"),
+		Name: github.Ptr("test"),
 		Owner: &github.User{
-			Login: github.String("mhaypenny"),
+			Login: github.Ptr("mhaypenny"),
 		},
 	})
 
@@ -60,9 +60,9 @@ func TestPreparePRContext(t *testing.T) {
 	ctx := logger.WithContext(context.Background())
 
 	_, logger = PreparePRContext(ctx, 42, &github.Repository{
-		Name: github.String("test"),
+		Name: github.Ptr("test"),
 		Owner: &github.User{
-			Login: github.String("mhaypenny"),
+			Login: github.Ptr("mhaypenny"),
 		},
 	}, 128)
 
@@ -84,7 +84,7 @@ func TestPreparePRContext(t *testing.T) {
 	assertField(t, "pull request number", 128, entry.Number)
 }
 
-func assertField(t *testing.T, name string, expected, actual interface{}) {
+func assertField(t *testing.T, name string, expected, actual any) {
 	if expected != actual {
 		t.Errorf("incorrect %s: expected %#v (%T), but was %#v (%T)", name, expected, expected, actual, actual)
 	}
