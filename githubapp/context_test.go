@@ -31,9 +31,9 @@ func TestPrepareRepoContext(t *testing.T) {
 	ctx := logger.WithContext(context.Background())
 
 	_, logger = PrepareRepoContext(ctx, 42, &github.Repository{
-		Name: github.Ptr("test"),
+		Name: new("test"),
 		Owner: &github.User{
-			Login: github.Ptr("mhaypenny"),
+			Login: new("mhaypenny"),
 		},
 	})
 
@@ -60,9 +60,9 @@ func TestPreparePRContext(t *testing.T) {
 	ctx := logger.WithContext(context.Background())
 
 	_, logger = PreparePRContext(ctx, 42, &github.Repository{
-		Name: github.Ptr("test"),
+		Name: new("test"),
 		Owner: &github.User{
-			Login: github.Ptr("mhaypenny"),
+			Login: new("mhaypenny"),
 		},
 	}, 128)
 
