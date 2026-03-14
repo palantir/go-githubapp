@@ -41,7 +41,7 @@ func TestClientLogging(t *testing.T) {
 			t.Fatalf("unexpected error making request: %v", err)
 		}
 
-		assertLogFields(t, out.Bytes(), map[string]interface{}{
+		assertLogFields(t, out.Bytes(), map[string]any{
 			"method":       "GET",
 			"status":       float64(200),
 			"request_body": "The request",
@@ -60,7 +60,7 @@ func TestClientLogging(t *testing.T) {
 			t.Fatalf("unexpected error making request: %v", err)
 		}
 
-		assertLogFields(t, out.Bytes(), map[string]interface{}{
+		assertLogFields(t, out.Bytes(), map[string]any{
 			"method":       "GET",
 			"status":       float64(200),
 			"request_body": missingField,
@@ -79,7 +79,7 @@ func TestClientLogging(t *testing.T) {
 			t.Fatalf("unexpected error making request: %v", err)
 		}
 
-		assertLogFields(t, out.Bytes(), map[string]interface{}{
+		assertLogFields(t, out.Bytes(), map[string]any{
 			"method":       "GET",
 			"status":       float64(200),
 			"request_body": "",
@@ -98,7 +98,7 @@ func TestClientLogging(t *testing.T) {
 			t.Fatalf("unexpected error making request: %v", err)
 		}
 
-		assertLogFields(t, out.Bytes(), map[string]interface{}{
+		assertLogFields(t, out.Bytes(), map[string]any{
 			"method":        "GET",
 			"status":        float64(200),
 			"response_body": "The response",
@@ -117,7 +117,7 @@ func TestClientLogging(t *testing.T) {
 			t.Fatalf("unexpected error making request: %v", err)
 		}
 
-		assertLogFields(t, out.Bytes(), map[string]interface{}{
+		assertLogFields(t, out.Bytes(), map[string]any{
 			"method":        "GET",
 			"status":        float64(200),
 			"response_body": missingField,
@@ -187,10 +187,10 @@ func newEmptyRoundTripper() http.RoundTripper {
 
 var missingField struct{}
 
-func assertLogFields(t *testing.T, out []byte, expected map[string]interface{}) {
+func assertLogFields(t *testing.T, out []byte, expected map[string]any) {
 	t.Logf("log output: %s", out)
 
-	var actual map[string]interface{}
+	var actual map[string]any
 	if err := json.Unmarshal(out, &actual); err != nil {
 		t.Fatalf("unexpected error unmarshalling log fields: %v", err)
 	}

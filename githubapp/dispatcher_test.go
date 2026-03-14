@@ -192,7 +192,7 @@ func TestSetAndGetResponder(t *testing.T) {
 }
 
 func newHookRequest(eventType, id string, signed bool) *http.Request {
-	body := []byte(fmt.Sprintf(`{"type":"%s"}`, eventType))
+	body := fmt.Appendf(nil, `{"type":"%s"}`, eventType)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/github/hook", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")

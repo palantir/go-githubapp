@@ -21,7 +21,7 @@ package appconfig
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -312,7 +312,7 @@ func getLargeFileContents(ctx context.Context, client *github.Client, owner, rep
 		return nil, errors.Errorf("failed to read file: unexpected status code %d", res.StatusCode)
 	}
 
-	b, err := ioutil.ReadAll(body)
+	b, err := io.ReadAll(body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read file")
 	}
