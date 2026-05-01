@@ -149,7 +149,6 @@ func makeTestClient() *github.Client {
 		"/repos/test/local-file/contents/.github/test-app.v2.yml": "404.yml",
 
 		"/repos/test/local-file-large/contents/.github/test-app.yml": "local-file-large-contents.yml",
-		"/repos/test/local-file-large/contents/.github":              "local-file-large-dir-contents.yml",
 		"/test/local-file-large/develop/.github/test-app.yml":        "local-file-large-download.yml",
 
 		"/repos/test/remote-ref/contents/.github/test-app.yml":               "remote-ref-contents.yml",
