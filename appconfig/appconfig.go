@@ -295,17 +295,17 @@ func getFileContents(ctx context.Context, client *github.Client, owner, repo, re
 
 	downloadURL := file.GetDownloadURL()
 	if downloadURL == "" {
-		return nil, false, errors.New("download url is empty")
+		return nil, true, errors.New("download url is empty")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", downloadURL, nil)
 	if err != nil {
-		return nil, false, errors.Wrap(err, "failed to create download request")
+		return nil, true, errors.Wrap(err, "failed to create download request")
 	}
 
 	res, err := client.Client().Do(req)
 	if err != nil {
-		return nil, false, errors.Wrap(err, "failed to download file")
+		return nil, true, errors.Wrap(err, "failed to download file")
 	}
 
 	defer func() {
@@ -314,12 +314,12 @@ func getFileContents(ctx context.Context, client *github.Client, owner, repo, re
 	}()
 
 	if res.StatusCode != http.StatusOK {
-		return nil, false, errors.Errorf("failed to download file: unexpected status code %d", res.StatusCode)
+		return nil, true, errors.Errorf("failed to download file: unexpected status code %d", res.StatusCode)
 	}
 
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, false, errors.Wrap(err, "failed to read file")
+		return nil, true, errors.Wrap(err, "failed to read file")
 	}
 	return b, true, nil
 }
