@@ -286,10 +286,10 @@ func getFileContents(ctx context.Context, client *github.Client, owner, repo, re
 		return nil, false, nil
 	}
 
-	// Ignore the decoding error and try the download URL. The most likely
-	// reason is that the file is larger than 1MB.
+	// If decoding the content fails, ignore the error and try the download URL
+	// instead. The most likely error is if the file is larger than 1MB.
 	content, err := file.GetContent()
-	if err == nil && content != "" {
+	if err == nil {
 		return []byte(content), true, nil
 	}
 
@@ -303,7 +303,7 @@ func getFileContents(ctx context.Context, client *github.Client, owner, repo, re
 		return nil, false, errors.Wrap(err, "failed to create download request")
 	}
 
-	res, err := client.BareDo(ctx, req)
+	res, err := client.Client().Do(req)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "failed to download file")
 	}
@@ -312,6 +312,10 @@ func getFileContents(ctx context.Context, client *github.Client, owner, repo, re
 		_, _ = io.Copy(io.Discard, res.Body)
 		_ = res.Body.Close()
 	}()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, false, errors.Errorf("failed to download file: unexpected status code %d", res.StatusCode)
+	}
 
 	b, err := io.ReadAll(res.Body)
 	if err != nil {
