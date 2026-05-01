@@ -1,7 +1,11 @@
-- status: 422
+- status: 200
   body: |
     {
-      "errors": [
-        {"code": "too_large"}
-      ]
+      "name": "test-app.yml",
+      "path": ".github/test-app.yml",
+      "size": 15000000,
+      "download_url": "https://raw.githubusercontent.com/test/local-file-large/develop/.github/test-app.yml?token=downloadtoken",
+      "type": "file",
+      "content": "",
+      "encoding": "none"
     }
