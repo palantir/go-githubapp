@@ -16,10 +16,9 @@ package githubapp
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 type AsyncHandler struct {

@@ -23,7 +23,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
 
@@ -55,12 +54,12 @@ func (rp *ResponsePlayer) AddRule(matcher RequestMatcher, file string) *Rule {
 
 	d, err := os.ReadFile(file)
 	if err != nil {
-		rule.err = errors.Wrapf(err, "failed to read response file: %s", file)
+		rule.err = fmt.Errorf("failed to read response file: %s: %w", file, err)
 		return rule
 	}
 
 	if err := yaml.Unmarshal(d, &rule.responses); err != nil {
-		rule.err = errors.Wrapf(err, "failed to unmarshal response file: %s", file)
+		rule.err = fmt.Errorf("failed to unmarshal response file: %s: %w", file, err)
 		return rule
 	}
 
