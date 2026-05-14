@@ -15,10 +15,10 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/palantir/go-githubapp/githubapp"
-	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 )
 
@@ -43,11 +43,11 @@ func ReadConfig(path string) (*Config, error) {
 
 	bytes, err := os.ReadFile(path)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed reading server config file: %s", path)
+		return nil, fmt.Errorf("failed reading server config file: %s: %w", path, err)
 	}
 
 	if err := yaml.UnmarshalStrict(bytes, &c); err != nil {
-		return nil, errors.Wrap(err, "failed parsing configuration file")
+		return nil, fmt.Errorf("failed parsing configuration file: %w", err)
 	}
 
 	return &c, nil

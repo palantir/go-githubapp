@@ -20,7 +20,6 @@ import (
 	"net/http"
 
 	"github.com/google/go-github/v85/github"
-	"github.com/pkg/errors"
 )
 
 // Installation is a minimal representation of a GitHub app installation.
@@ -94,7 +93,7 @@ func (i defaultInstallationsService) ListAll(ctx context.Context) ([]Installatio
 	for {
 		installations, res, err := i.Apps.ListInstallations(ctx, &opt)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to list installations")
+			return nil, fmt.Errorf("failed to list installations: %w", err)
 		}
 		for _, inst := range installations {
 			allInstallations = append(allInstallations, toInstallation(inst))
@@ -125,7 +124,7 @@ func (i defaultInstallationsService) GetByOwner(ctx context.Context, owner strin
 	if isNotFound(err) {
 		return Installation{}, InstallationNotFound(owner)
 	}
-	return Installation{}, errors.Wrapf(err, "failed to get installation for owner %q", owner)
+	return Installation{}, fmt.Errorf("failed to get installation for owner %q: %w", owner, err)
 }
 
 func (i defaultInstallationsService) GetByRepository(ctx context.Context, owner, repo string) (Installation, error) {
@@ -138,7 +137,7 @@ func (i defaultInstallationsService) GetByRepository(ctx context.Context, owner,
 	if isNotFound(err) {
 		return Installation{}, InstallationNotFound(ownerRepo)
 	}
-	return Installation{}, errors.Wrapf(err, "failed to get installation for repository %q", ownerRepo)
+	return Installation{}, fmt.Errorf("failed to get installation for repository %q: %w", ownerRepo, err)
 }
 
 // InstallationNotFound is returned when no installation exists for a
