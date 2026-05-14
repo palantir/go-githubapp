@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	"github.com/google/go-github/v85/github"
+	"github.com/google/go-github/v86/github"
 	"github.com/gregjones/httpcache"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
