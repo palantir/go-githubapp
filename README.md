@@ -230,6 +230,10 @@ GitHub clients emit the following metrics when configured with the
 | `github.rate.limit[installation:<id>]` | `gauge` | the maximum number of requests permitted to make per hour, tagged with the installation id |
 | `github.rate.remaining[installation:<id>]` | `gauge` | the number of requests remaining in the current rate limit window, tagged with the installation id |
 
+Installation clients tag rate limit metrics with their GitHub App installation
+ID. App and OAuth token clients use installation ID `0` because they are not
+associated with a GitHub App installation.
+
 When using [asynchronous dispatch](#asynchronous-dispatch), the
 `githubapp.WithSchedulingMetrics` option emits the following metrics:
 

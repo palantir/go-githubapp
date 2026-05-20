@@ -214,7 +214,7 @@ func (c *clientCreator) NewAppV4Client() (*githubv4.Client, error) {
 	// which we cannot cache, so don't add the cache middleware
 	middleware := []ClientMiddleware{installation}
 
-	client, err := c.newV4Client(base, middleware, "application")
+	client, err := c.newV4Client(base, middleware, "application", 0)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func (c *clientCreator) NewInstallationV4Client(installationID int64) (*githubv4
 	// which we cannot cache, so don't construct the middleware
 	middleware := []ClientMiddleware{installation}
 
-	client, err := c.newV4Client(base, middleware, fmt.Sprintf("installation: %d", installationID))
+	client, err := c.newV4Client(base, middleware, fmt.Sprintf("installation: %d", installationID), installationID)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,7 @@ func (c *clientCreator) NewTokenSourceV4Client(ts oauth2.TokenSource) (*githubv4
 	tc := oauth2.NewClient(context.Background(), ts)
 	// The v4 API primarily uses POST requests (except for introspection queries)
 	// which we cannot cache, so don't construct the middleware
-	return c.newV4Client(tc, nil, "oauth token")
+	return c.newV4Client(tc, nil, "oauth token", 0)
 }
 
 func (c *clientCreator) newHTTPClient() *http.Client {
@@ -322,9 +322,9 @@ func (c *clientCreator) newClient(base *http.Client, middleware []ClientMiddlewa
 	return client, nil
 }
 
-func (c *clientCreator) newV4Client(base *http.Client, middleware []ClientMiddleware, details string) (*githubv4.Client, error) {
+func (c *clientCreator) newV4Client(base *http.Client, middleware []ClientMiddleware, details string, installID int64) (*githubv4.Client, error) {
 	applyMiddleware(base, [][]ClientMiddleware{
-		{setUserAgentHeader(makeUserAgent(c.userAgent, details))},
+		{setInstallationID(installID), setUserAgentHeader(makeUserAgent(c.userAgent, details))},
 		c.middleware,
 		middleware,
 	})
