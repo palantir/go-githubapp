@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	"github.com/google/go-github/v86/github"
+	"github.com/google/go-github/v88/github"
 	"github.com/gregjones/httpcache"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
@@ -310,14 +310,14 @@ func (c *clientCreator) newClient(base *http.Client, middleware []ClientMiddlewa
 		middleware,
 	})
 
-	baseURL, err := url.Parse(c.v3BaseURL)
+	client, err := github.NewClient(
+		github.WithHTTPClient(base),
+		github.WithURLs(&c.v3BaseURL, nil),
+		github.WithUserAgent(makeUserAgent(c.userAgent, details)),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse base URL: %q: %w", c.v3BaseURL, err)
+		return nil, fmt.Errorf("failed to create github client: %w", err)
 	}
-
-	client := github.NewClient(base)
-	client.BaseURL = baseURL
-	client.UserAgent = makeUserAgent(c.userAgent, details)
 
 	return client, nil
 }

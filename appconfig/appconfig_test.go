@@ -21,7 +21,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/google/go-github/v86/github"
+	"github.com/google/go-github/v88/github"
 )
 
 const (
@@ -166,5 +166,6 @@ func makeTestClient() *github.Client {
 	} {
 		rp.AddRule(ExactPathMatcher(route), filepath.Join("testdata", f))
 	}
-	return github.NewClient(&http.Client{Transport: rp})
+	client, _ := github.NewClient(github.WithHTTPClient(&http.Client{Transport: rp}))
+	return client
 }
