@@ -108,14 +108,14 @@ func (i defaultInstallationsService) ListAll(ctx context.Context) ([]Installatio
 }
 
 func (i defaultInstallationsService) GetByOwner(ctx context.Context, owner string) (Installation, error) {
-	installation, _, err := i.Apps.FindOrganizationInstallation(ctx, owner)
+	installation, _, err := i.Apps.GetOrganizationInstallation(ctx, owner)
 	if err == nil {
 		return toInstallation(installation), nil
 	}
 
 	// owner is not an organization, try to find as a user
 	if isNotFound(err) {
-		installation, _, err = i.Apps.FindUserInstallation(ctx, owner)
+		installation, _, err = i.Apps.GetUserInstallation(ctx, owner)
 		if err == nil {
 			return toInstallation(installation), nil
 		}
@@ -128,7 +128,7 @@ func (i defaultInstallationsService) GetByOwner(ctx context.Context, owner strin
 }
 
 func (i defaultInstallationsService) GetByRepository(ctx context.Context, owner, repo string) (Installation, error) {
-	installation, _, err := i.Apps.FindRepositoryInstallation(ctx, owner, repo)
+	installation, _, err := i.Apps.GetRepositoryInstallation(ctx, owner, repo)
 	if err == nil {
 		return toInstallation(installation), nil
 	}
