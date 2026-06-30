@@ -25,12 +25,19 @@ const (
 	DefaultRoute = "/api/github/auth"
 )
 
+const defaultAuthPath = "/login/oauth/authorize"
+
 func GetConfig(c githubapp.Config, scopes []string) *oauth2.Config {
+	authURL := c.OAuth.AuthURL
+	if authURL == "" {
+		authURL = joinURL(c.WebURL, defaultAuthPath)
+	}
+
 	return &oauth2.Config{
 		ClientID:     c.OAuth.ClientID,
 		ClientSecret: c.OAuth.ClientSecret,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  joinURL(c.WebURL, "/login/oauth/authorize"),
+			AuthURL:  authURL,
 			TokenURL: joinURL(c.WebURL, "/login/oauth/access_token"),
 		},
 		Scopes: scopes,

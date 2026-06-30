@@ -33,6 +33,11 @@ type Config struct {
 	OAuth struct {
 		ClientID     string `yaml:"client_id" json:"clientId"`
 		ClientSecret string `yaml:"client_secret" json:"clientSecret"`
+		// AuthURL overrides the OAuth authorization endpoint URL. When empty,
+		// the URL is derived from WebURL using the default GitHub path
+		// (/login/oauth/authorize). Set this for GitHub Enterprise Server 3.18+
+		// deployments where the endpoint is /login/oauth/authorize_app.
+		AuthURL string `yaml:"auth_url" json:"authUrl"`
 	} `yaml:"oauth" json:"oauth"`
 }
 
@@ -50,6 +55,7 @@ func (c *Config) SetValuesFromEnv(prefix string) {
 
 	setStringFromEnv("GITHUB_OAUTH_CLIENT_ID", prefix, &c.OAuth.ClientID)
 	setStringFromEnv("GITHUB_OAUTH_CLIENT_SECRET", prefix, &c.OAuth.ClientSecret)
+	setStringFromEnv("GITHUB_OAUTH_AUTH_URL", prefix, &c.OAuth.AuthURL)
 }
 
 func setStringFromEnv(key, prefix string, value *string) {
