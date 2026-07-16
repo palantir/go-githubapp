@@ -24,7 +24,7 @@ require (
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.15 // indirect
-	github.com/mattn/go-isatty v0.0.22 // indirect
+	github.com/mattn/go-isatty v0.0.23 // indirect
 	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	github.com/shurcooL/graphql v0.0.0-20240915155400-7ee5256398cf // indirect
 	golang.org/x/crypto v0.54.0 // indirect
