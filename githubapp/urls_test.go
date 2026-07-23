@@ -114,10 +114,10 @@ func TestConfigGetURLs(t *testing.T) {
 			wantV3: "https://github.example.com/api/v3/",
 			wantV4: "https://github.example.com/api/graphql",
 		},
-		"noFieldsDefaultsToPublic": {
+		"noFieldsLeavesURLsUnset": {
 			config: Config{},
-			wantV3: "https://api.github.com/",
-			wantV4: "https://api.github.com/graphql",
+			wantV3: "",
+			wantV4: "",
 		},
 		"partialOverride": {
 			config: Config{
@@ -141,11 +141,21 @@ func TestConfigGetURLs(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if got.APIv3.String() != tt.wantV3 {
-				t.Errorf("APIv3: got %q, want %q", got.APIv3, tt.wantV3)
+
+			gotV3 := ""
+			if got.APIv3 != nil {
+				gotV3 = got.APIv3.String()
 			}
-			if got.APIv4.String() != tt.wantV4 {
-				t.Errorf("APIv4: got %q, want %q", got.APIv4, tt.wantV4)
+			if gotV3 != tt.wantV3 {
+				t.Errorf("APIv3: got %q, want %q", gotV3, tt.wantV3)
+			}
+
+			gotV4 := ""
+			if got.APIv4 != nil {
+				gotV4 = got.APIv4.String()
+			}
+			if gotV4 != tt.wantV4 {
+				t.Errorf("APIv4: got %q, want %q", gotV4, tt.wantV4)
 			}
 		})
 	}

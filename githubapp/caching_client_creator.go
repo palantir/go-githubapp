@@ -35,9 +35,16 @@ func NewDefaultCachingClientCreator(c Config, opts ...ClientOption) (ClientCreat
 	if err != nil {
 		return nil, err
 	}
+	var v3, v4 string
+	if urls.APIv3 != nil {
+		v3 = urls.APIv3.String()
+	}
+	if urls.APIv4 != nil {
+		v4 = urls.APIv4.String()
+	}
 	delegate := NewClientCreator(
-		urls.APIv3.String(),
-		urls.APIv4.String(),
+		v3,
+		v4,
 		c.App.IntegrationID,
 		[]byte(c.App.PrivateKey),
 		opts...,

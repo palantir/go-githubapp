@@ -58,23 +58,21 @@ func (c *Config) SetValuesFromEnv(prefix string) {
 
 // GetURLs resolves the GitHub endpoint URLs for this configuration.
 // Explicit URL fields (WebURL, V3APIURL, V4APIURL) take precedence over
-// BaseURL. If none are set, it falls back to ParseURLs("github.com").
+// BaseURL. If BaseURL is empty, URLs that are not explicitly set remain nil.
 func (c *Config) GetURLs() (*URLs, error) {
-	// all three explicit URLs are set — use them directly
-	if c.WebURL != "" && c.V3APIURL != "" && c.V4APIURL != "" {
-		return parseExplicitURLs(c.WebURL, c.V3APIURL, c.V4APIURL)
+	urls := &URLs{}
+
+	if c.BaseURL != "" {
+		derived, err := ParseURLs(c.BaseURL)
+		if err != nil {
+			return nil, err
+		}
+		urls.Web = derived.Web
+		urls.APIv3 = derived.APIv3
+		urls.APIv4 = derived.APIv4
 	}
 
-	// derive from BaseURL, then overlay any explicit overrides
-	base := c.BaseURL
-	if base == "" {
-		base = githubPublicHost
-	}
-	urls, err := ParseURLs(base)
-	if err != nil {
-		return nil, err
-	}
-
+	var err error
 	if c.WebURL != "" {
 		if urls.Web, err = url.Parse(c.WebURL); err != nil {
 			return nil, err
@@ -90,23 +88,8 @@ func (c *Config) GetURLs() (*URLs, error) {
 			return nil, err
 		}
 	}
-	return urls, nil
-}
 
-func parseExplicitURLs(web, v3, v4 string) (*URLs, error) {
-	wu, err := url.Parse(web)
-	if err != nil {
-		return nil, err
-	}
-	v3u, err := url.Parse(v3)
-	if err != nil {
-		return nil, err
-	}
-	v4u, err := url.Parse(v4)
-	if err != nil {
-		return nil, err
-	}
-	return &URLs{Web: wu, APIv3: v3u, APIv4: v4u}, nil
+	return urls, nil
 }
 
 func setStringFromEnv(key, prefix string, value *string) {
