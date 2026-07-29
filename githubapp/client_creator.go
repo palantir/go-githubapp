@@ -100,6 +100,9 @@ type key string
 
 const installationKey = key("installationID")
 
+// InstallationIDContextKey is exported for telemetry subpackages.
+const InstallationIDContextKey = installationKey
+
 // NewClientCreator returns a ClientCreator that creates a GitHub client for
 // installations of the app specified by the provided arguments.
 func NewClientCreator(v3BaseURL, v4BaseURL string, integrationID int64, privKeyBytes []byte, opts ...ClientOption) ClientCreator {
