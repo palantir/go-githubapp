@@ -21,6 +21,7 @@ import (
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/shurcooL/githubv4"
 	"golang.org/x/oauth2"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -58,6 +59,7 @@ func NewCachingClientCreator(delegate ClientCreator, capacity int) (ClientCreato
 type cachingClientCreator struct {
 	cachedClients *lru.Cache
 	delegate      ClientCreator
+	sfGroup       singleflight.Group
 }
 
 func (c *cachingClientCreator) NewAppClient() (*github.Client, error) {
@@ -71,41 +73,57 @@ func (c *cachingClientCreator) NewAppV4Client() (*githubv4.Client, error) {
 }
 
 func (c *cachingClientCreator) NewInstallationClient(installationID int64) (*github.Client, error) {
-	// if client is in cache, return it
 	key := c.toCacheKey("v3", installationID)
-	val, ok := c.cachedClients.Get(key)
-	if ok {
+	if val, ok := c.cachedClients.Get(key); ok {
 		if client, ok := val.(*github.Client); ok {
 			return client, nil
 		}
 	}
 
-	// otherwise, create and return
-	client, err := c.delegate.NewInstallationClient(installationID)
+	v, err, _ := c.sfGroup.Do(key, func() (interface{}, error) {
+		if val, ok := c.cachedClients.Get(key); ok {
+			if client, ok := val.(*github.Client); ok {
+				return client, nil
+			}
+		}
+		client, err := c.delegate.NewInstallationClient(installationID)
+		if err != nil {
+			return nil, err
+		}
+		c.cachedClients.Add(key, client)
+		return client, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	c.cachedClients.Add(key, client)
-	return client, nil
+	return v.(*github.Client), nil
 }
 
 func (c *cachingClientCreator) NewInstallationV4Client(installationID int64) (*githubv4.Client, error) {
-	// if client is in cache, return it
 	key := c.toCacheKey("v4", installationID)
-	val, ok := c.cachedClients.Get(key)
-	if ok {
+	if val, ok := c.cachedClients.Get(key); ok {
 		if client, ok := val.(*githubv4.Client); ok {
 			return client, nil
 		}
 	}
 
-	// otherwise, create and return
-	client, err := c.delegate.NewInstallationV4Client(installationID)
+	v, err, _ := c.sfGroup.Do(key, func() (interface{}, error) {
+		if val, ok := c.cachedClients.Get(key); ok {
+			if client, ok := val.(*githubv4.Client); ok {
+				return client, nil
+			}
+		}
+		client, err := c.delegate.NewInstallationV4Client(installationID)
+		if err != nil {
+			return nil, err
+		}
+		c.cachedClients.Add(key, client)
+		return client, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	c.cachedClients.Add(key, client)
-	return client, nil
+	return v.(*githubv4.Client), nil
 }
 
 func (c *cachingClientCreator) NewTokenSourceClient(ts oauth2.TokenSource) (*github.Client, error) {
