@@ -27,15 +27,23 @@ import (
 func TestCacheDoesNotStoreServerErrors(t *testing.T) {
 	tests := map[string]struct {
 		AlwaysValidate       bool
+		CacheControl         string
 		ExpectedCacheControl string
 	}{
 		"useFreshCachedResponses": {
 			AlwaysValidate:       false,
+			CacheControl:         "public, max-age=3600, must-revalidate",
 			ExpectedCacheControl: "public, max-age=3600, must-revalidate, no-store",
 		},
 		"alwaysValidateCachedResponses": {
 			AlwaysValidate:       true,
+			CacheControl:         "public, max-age=3600, must-revalidate",
 			ExpectedCacheControl: "public, max-age=0, must-revalidate, no-store",
+		},
+		"noStoreAlreadyPresent": {
+			AlwaysValidate:       false,
+			CacheControl:         "public, max-age=3600, must-revalidate, no-store",
+			ExpectedCacheControl: "public, max-age=3600, must-revalidate, no-store",
 		},
 	}
 
@@ -49,7 +57,7 @@ func TestCacheDoesNotStoreServerErrors(t *testing.T) {
 				{
 					Status: http.StatusInternalServerError,
 					Header: http.Header{
-						"Cache-Control": {"public, max-age=3600, must-revalidate"},
+						"Cache-Control": {test.CacheControl},
 						"Date":          {responseDate},
 						"Etag":          {`"server-error"`},
 					},

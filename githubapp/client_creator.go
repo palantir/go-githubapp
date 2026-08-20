@@ -396,8 +396,14 @@ func noStoreServerErrors(next http.RoundTripper) http.RoundTripper {
 			if resp.Header == nil {
 				resp.Header = make(http.Header)
 			}
-			// Preserve existing Cache-Control directives when appending no-store.
+			// Preserve existing Cache-Control directives.
 			cacheControl := resp.Header.Get("Cache-Control")
+			// Don't add a no-store directive if it already exists.
+			for _, directive := range strings.Split(cacheControl, ",") {
+				if strings.TrimSpace(directive) == "no-store" {
+					return resp, err
+				}
+			}
 			if cacheControl != "" {
 				cacheControl += ", "
 			}
