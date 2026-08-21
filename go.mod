@@ -2,7 +2,7 @@ module github.com/palantir/go-githubapp
 
 go 1.26.0
 
-toolchain go1.26.6
+toolchain go1.26.7
 
 require (
 	github.com/alexedwards/scs v1.4.1
