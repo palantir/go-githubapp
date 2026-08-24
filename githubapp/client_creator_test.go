@@ -16,6 +16,7 @@ package githubapp
 
 import (
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -121,9 +122,7 @@ type cacheTestResponse struct {
 
 func newCacheTestResponse(status int, header http.Header) *http.Response {
 	recorder := httptest.NewRecorder()
-	for key, values := range header {
-		recorder.Header()[key] = values
-	}
+	maps.Copy(recorder.Header(), header)
 	recorder.WriteHeader(status)
 	return recorder.Result()
 }
