@@ -17,17 +17,75 @@ package appconfig
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"path/filepath"
 	"testing"
 
 	"github.com/google/go-github/v90/github"
+	"github.com/palantir/go-githubapp/githubapp"
+	"github.com/shurcooL/githubv4"
+	"golang.org/x/oauth2"
 )
 
 const (
 	TestOwner = "test"
 	TestRef   = "develop"
 )
+
+type testInstallationsService struct {
+	installation githubapp.Installation
+	err          error
+	calls        int
+}
+
+func (s *testInstallationsService) ListAll(context.Context) ([]githubapp.Installation, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *testInstallationsService) GetByOwner(context.Context, string) (githubapp.Installation, error) {
+	s.calls++
+	if s.err != nil {
+		return githubapp.Installation{}, s.err
+	}
+	return s.installation, nil
+}
+
+func (s *testInstallationsService) GetByRepository(context.Context, string, string) (githubapp.Installation, error) {
+	return githubapp.Installation{}, errors.New("not implemented")
+}
+
+type testClientCreator struct {
+	client *github.Client
+	err    error
+	calls  int
+}
+
+func (c *testClientCreator) NewAppClient() (*github.Client, error) {
+	return nil, errors.New("not implemented")
+}
+func (c *testClientCreator) NewAppV4Client() (*githubv4.Client, error) {
+	return nil, errors.New("not implemented")
+}
+func (c *testClientCreator) NewInstallationClient(int64) (*github.Client, error) {
+	c.calls++
+	return c.client, c.err
+}
+func (c *testClientCreator) NewInstallationV4Client(int64) (*githubv4.Client, error) {
+	return nil, errors.New("not implemented")
+}
+func (c *testClientCreator) NewTokenSourceClient(oauth2.TokenSource) (*github.Client, error) {
+	return nil, errors.New("not implemented")
+}
+func (c *testClientCreator) NewTokenSourceV4Client(oauth2.TokenSource) (*githubv4.Client, error) {
+	return nil, errors.New("not implemented")
+}
+func (c *testClientCreator) NewTokenClient(string) (*github.Client, error) {
+	return nil, errors.New("not implemented")
+}
+func (c *testClientCreator) NewTokenV4Client(string) (*githubv4.Client, error) {
+	return nil, errors.New("not implemented")
+}
 
 func TestLoadConfig(t *testing.T) {
 	tests := map[string]struct {
@@ -139,6 +197,85 @@ func TestLoadConfig(t *testing.T) {
 				t.Errorf("incorrect content\nexpected: %s\n  actual: %s", test.Expected.Content, cfg.Content)
 			}
 		})
+	}
+}
+
+func TestLoadConfigWithPrivateRemotes(t *testing.T) {
+	newClient := func(rp *ResponsePlayer) *github.Client {
+		client, _ := github.NewClient(github.WithHTTPClient(&http.Client{Transport: rp}))
+		return client
+	}
+	localRules := func(includeRemote bool) *ResponsePlayer {
+		rp := &ResponsePlayer{}
+		rp.AddRule(ExactPathMatcher("/repos/test/remote-ref/contents/.github/test-app.yml"), filepath.Join("testdata", "remote-ref-contents.yml"))
+		if includeRemote {
+			rp.AddRule(ExactPathMatcher("/repos/remote/config/contents/config/test-app.yml"), filepath.Join("testdata", "config-contents.yml"))
+		}
+		return rp
+	}
+
+	t.Run("uses remote owner installation client", func(t *testing.T) {
+		localRules := localRules(false)
+		remoteRules := &ResponsePlayer{}
+		remoteRule := remoteRules.AddRule(ExactPathMatcher("/repos/remote/config/contents/config/test-app.yml"), filepath.Join("testdata", "config-contents.yml"))
+		installations := &testInstallationsService{installation: githubapp.Installation{ID: 42, Owner: "remote"}}
+		creator := &testClientCreator{client: newClient(remoteRules)}
+
+		loader := NewLoader([]string{".github/test-app.yml"}, WithPrivateRemotes(creator, installations))
+		cfg, err := loader.LoadConfig(context.Background(), newClient(localRules), TestOwner, "remote-ref", TestRef)
+		if err != nil {
+			t.Fatalf("unexpected error loading config: %v", err)
+		}
+		if !bytes.Equal(cfg.Content, []byte("message: hello\n")) {
+			t.Errorf("incorrect content: %s", cfg.Content)
+		}
+		if installations.calls != 1 || creator.calls != 1 || remoteRule.Count != 1 {
+			t.Errorf("expected one installation lookup, client creation, and remote request; got %d, %d, and %d", installations.calls, creator.calls, remoteRule.Count)
+		}
+	})
+
+	for name, test := range map[string]struct {
+		installationsErr error
+		creatorErr       error
+	}{
+		"falls back when remote owner has no installation":   {installationsErr: githubapp.InstallationNotFound("remote")},
+		"falls back when installation client creation fails": {creatorErr: errors.New("client creation failed")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			localRules := localRules(true)
+			installations := &testInstallationsService{installation: githubapp.Installation{ID: 42, Owner: "remote"}, err: test.installationsErr}
+			creator := &testClientCreator{err: test.creatorErr}
+
+			loader := NewLoader([]string{".github/test-app.yml"}, WithPrivateRemotes(creator, installations))
+			cfg, err := loader.LoadConfig(context.Background(), newClient(localRules), TestOwner, "remote-ref", TestRef)
+			if err != nil {
+				t.Fatalf("unexpected error loading config: %v", err)
+			}
+			if !bytes.Equal(cfg.Content, []byte("message: hello\n")) {
+				t.Errorf("incorrect content: %s", cfg.Content)
+			}
+			if test.installationsErr != nil && creator.calls != 0 {
+				t.Errorf("client creator was called after installation lookup failed")
+			}
+			if test.creatorErr != nil && creator.calls != 1 {
+				t.Errorf("expected one client creation attempt, got %d", creator.calls)
+			}
+		})
+	}
+}
+
+func TestPrivateRemotesSameOwnerReusesOriginalClient(t *testing.T) {
+	client := makeTestClient()
+	installations := &testInstallationsService{}
+	creator := &testClientCreator{}
+	loader := NewLoader(nil, WithPrivateRemotes(creator, installations))
+
+	got := loader.remoteClient(context.Background(), client, "Source-Owner", "source-owner")
+	if got != client {
+		t.Error("same-owner remote did not reuse the original client")
+	}
+	if installations.calls != 0 || creator.calls != 0 {
+		t.Errorf("same-owner remote attempted installation lookup or client creation: %d, %d", installations.calls, creator.calls)
 	}
 }
 
