@@ -14,7 +14,9 @@
 
 package appconfig
 
-import "github.com/palantir/go-githubapp/githubapp"
+import (
+	"github.com/palantir/go-githubapp/githubapp"
+)
 
 type Option func(*Loader)
 
