@@ -17,12 +17,17 @@ package githubapp
 import (
 	"os"
 	"strconv"
+	"time"
 )
 
 type Config struct {
 	WebURL   string `yaml:"web_url" json:"webUrl"`
 	V3APIURL string `yaml:"v3_api_url" json:"v3ApiUrl"`
 	V4APIURL string `yaml:"v4_api_url" json:"v4ApiUrl"`
+
+	// RateLimitMaxWait is the maximum duration to wait before retrying a
+	// rate-limited (403) GitHub API request. Zero disables retry.
+	RateLimitMaxWait time.Duration `yaml:"rate_limit_max_wait" json:"rateLimitMaxWait"`
 
 	App struct {
 		IntegrationID int64  `yaml:"integration_id" json:"integrationId"`
@@ -43,6 +48,7 @@ func (c *Config) SetValuesFromEnv(prefix string) {
 	setStringFromEnv("GITHUB_WEB_URL", prefix, &c.WebURL)
 	setStringFromEnv("GITHUB_V3_API_URL", prefix, &c.V3APIURL)
 	setStringFromEnv("GITHUB_V4_API_URL", prefix, &c.V4APIURL)
+	setDurationFromEnv("GITHUB_RATE_LIMIT_MAX_WAIT", prefix, &c.RateLimitMaxWait)
 
 	setIntFromEnv("GITHUB_APP_INTEGRATION_ID", prefix, &c.App.IntegrationID)
 	setStringFromEnv("GITHUB_APP_WEBHOOK_SECRET", prefix, &c.App.WebhookSecret)
@@ -62,6 +68,14 @@ func setIntFromEnv(key, prefix string, value *int64) {
 	if v, ok := os.LookupEnv(prefix + key); ok {
 		if i, err := strconv.ParseInt(v, 10, 0); err == nil {
 			*value = i
+		}
+	}
+}
+
+func setDurationFromEnv(key, prefix string, value *time.Duration) {
+	if v, ok := os.LookupEnv(prefix + key); ok {
+		if d, err := time.ParseDuration(v); err == nil {
+			*value = d
 		}
 	}
 }
