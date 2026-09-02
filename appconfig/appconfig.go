@@ -171,7 +171,7 @@ func (ld *Loader) loadRemoteConfig(ctx context.Context, client *github.Client, s
 	if err != nil {
 		return c, err
 	}
-	client = ld.remoteClient(ctx, client, sourceOwner, owner)
+	client = ld.remoteClient(ctx, client, sourceOwner, owner, repo)
 
 	path := remote.Path
 	if path == "" && len(ld.paths) > 0 {
@@ -269,25 +269,25 @@ func (ld *Loader) loadDefaultConfig(ctx context.Context, client *github.Client, 
 	return Config{}, nil
 }
 
-// remoteClient returns an installation-scoped client for remoteOwner when
+// remoteClient returns an installation-scoped client for remoteOwner/remoteRepo when
 // private remotes are enabled and the remote belongs to a different owner. If
-// the app is not installed on that owner, or a client cannot be created, it
+// the app is not installed on that repository, or a client cannot be created, it
 // falls back to the caller's client so public repositories continue to work.
-func (ld *Loader) remoteClient(ctx context.Context, client *github.Client, sourceOwner, remoteOwner string) *github.Client {
+func (ld *Loader) remoteClient(ctx context.Context, client *github.Client, sourceOwner, remoteOwner, remoteRepo string) *github.Client {
 	if strings.EqualFold(sourceOwner, remoteOwner) || ld.clientCreator == nil || ld.installations == nil {
 		return client
 	}
 
 	logger := zerolog.Ctx(ctx)
-	installation, err := ld.installations.GetByOwner(ctx, remoteOwner)
+	installation, err := ld.installations.GetByRepository(ctx, remoteOwner, remoteRepo)
 	if err != nil {
-		logger.Warn().Err(err).Msgf("Failed to find GitHub App installation for remote configuration owner %q; using the original client", remoteOwner)
+		logger.Warn().Err(err).Msgf("Failed to find GitHub App installation for remote configuration repository %q; using the original client", remoteOwner+"/"+remoteRepo)
 		return client
 	}
 
 	remoteClient, err := ld.clientCreator.NewInstallationClient(installation.ID)
 	if err != nil {
-		logger.Warn().Err(err).Msgf("Failed to create GitHub App client for remote configuration owner %q; using the original client", remoteOwner)
+		logger.Warn().Err(err).Msgf("Failed to create GitHub App client for remote configuration repository %q; using the original client", remoteOwner+"/"+remoteRepo)
 		return client
 	}
 	return remoteClient

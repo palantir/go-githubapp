@@ -42,10 +42,16 @@ func WithOwnerDefault(name string, paths []string) Option {
 
 // WithPrivateRemotes enables loading remote configuration from private
 // repositories owned by a different user or organization. It uses the app's
-// installation on the remote owner to fetch the referenced file. If the app
-// is not installed on that owner, or an installation client cannot be created,
+// installation on the remote repository to fetch the referenced file. If the
+// app is not installed on that repository, or an installation client cannot be created,
 // the loader logs the failure and falls back to the original client so public
 // remote repositories remain supported.
+//
+// WARNING: Enabling this option can expose configuration file content and
+// repository existence to users who otherwise may not be able to access them.
+// Enable it only when the app is installed on GitHub organizations where all
+// users are trusted, or when the caller otherwise prevents unintentional
+// information disclosure.
 //
 // This loader does not cache installation lookups or clients. Callers that
 // load configuration frequently should pass caching implementations, such as
