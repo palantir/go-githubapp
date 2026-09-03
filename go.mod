@@ -7,7 +7,7 @@ toolchain go1.26.7
 require (
 	github.com/alexedwards/scs v1.4.1
 	github.com/bradleyfalzon/ghinstallation/v2 v2.19.0
-	github.com/google/go-github/v90 v90.0.0
+	github.com/google/go-github/v91 v91.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
