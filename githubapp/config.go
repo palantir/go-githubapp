@@ -15,11 +15,15 @@
 package githubapp
 
 import (
+	"net/url"
 	"os"
 	"strconv"
 )
 
 type Config struct {
+	// BaseURL is a convenience field that sets Web, V3APIURL, and V4APIURL
+	// automatically via ParseURLs. Explicit URL fields take precedence.
+	BaseURL  string `yaml:"base_url" json:"baseUrl"`
 	WebURL   string `yaml:"web_url" json:"webUrl"`
 	V3APIURL string `yaml:"v3_api_url" json:"v3ApiUrl"`
 	V4APIURL string `yaml:"v4_api_url" json:"v4ApiUrl"`
@@ -36,10 +40,10 @@ type Config struct {
 	} `yaml:"oauth" json:"oauth"`
 }
 
-// SetValuesFromEnv sets values in the configuration from coresponding
-// environment variables, if they exist. The optional prefix is added to the
-// start of the environment variable names.
+// SetValuesFromEnv sets configuration values from environment variables.
+// The optional prefix is prepended to each variable name.
 func (c *Config) SetValuesFromEnv(prefix string) {
+	setStringFromEnv("GITHUB_BASE_URL", prefix, &c.BaseURL)
 	setStringFromEnv("GITHUB_WEB_URL", prefix, &c.WebURL)
 	setStringFromEnv("GITHUB_V3_API_URL", prefix, &c.V3APIURL)
 	setStringFromEnv("GITHUB_V4_API_URL", prefix, &c.V4APIURL)
@@ -50,6 +54,42 @@ func (c *Config) SetValuesFromEnv(prefix string) {
 
 	setStringFromEnv("GITHUB_OAUTH_CLIENT_ID", prefix, &c.OAuth.ClientID)
 	setStringFromEnv("GITHUB_OAUTH_CLIENT_SECRET", prefix, &c.OAuth.ClientSecret)
+}
+
+// GetURLs resolves the GitHub endpoint URLs for this configuration.
+// Explicit URL fields (WebURL, V3APIURL, V4APIURL) take precedence over
+// BaseURL. If BaseURL is empty, URLs that are not explicitly set remain nil.
+func (c *Config) GetURLs() (*URLs, error) {
+	urls := &URLs{}
+
+	if c.BaseURL != "" {
+		derived, err := ParseURLs(c.BaseURL)
+		if err != nil {
+			return nil, err
+		}
+		urls.Web = derived.Web
+		urls.APIv3 = derived.APIv3
+		urls.APIv4 = derived.APIv4
+	}
+
+	var err error
+	if c.WebURL != "" {
+		if urls.Web, err = url.Parse(c.WebURL); err != nil {
+			return nil, err
+		}
+	}
+	if c.V3APIURL != "" {
+		if urls.APIv3, err = url.Parse(c.V3APIURL); err != nil {
+			return nil, err
+		}
+	}
+	if c.V4APIURL != "" {
+		if urls.APIv4, err = url.Parse(c.V4APIURL); err != nil {
+			return nil, err
+		}
+	}
+
+	return urls, nil
 }
 
 func setStringFromEnv(key, prefix string, value *string) {
