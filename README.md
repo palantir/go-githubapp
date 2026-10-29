@@ -345,8 +345,8 @@ c, err := loader.LoadRemoteRef(ctx, client, clientOwner, appconfig.RemoteRef{
 ```
 
 `clientOwner` must be the supplied client's original installation owner, even if
-an earlier load returned a file owned by another organization. Cross-owner
-installation access requires `WithPrivateRemotes`
+an earlier load returned a file owned by another organization. Using another
+owner's installation requires `appconfig.WithPrivateRemotes`.
 
 ## OAuth2
 
