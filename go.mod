@@ -2,12 +2,12 @@ module github.com/palantir/go-githubapp
 
 go 1.27.0
 
-toolchain go1.27.2
+toolchain go1.27.3
 
 require (
 	github.com/alexedwards/scs v1.4.1
 	github.com/bradleyfalzon/ghinstallation/v2 v2.19.0
-	github.com/google/go-github/v92 v92.0.0
+	github.com/google/go-github/v93 v93.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/golang-lru v1.0.2
 	github.com/patrickmn/go-cache v2.1.0+incompatible
@@ -27,7 +27,7 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/rogpeppe/go-internal v1.16.0 // indirect
 	github.com/shurcooL/graphql v0.0.0-20240915155400-7ee5256398cf // indirect
-	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
