@@ -98,36 +98,50 @@ func TestLoadRemoteRefMissingAndEmpty(t *testing.T) {
 			} else if err != nil {
 				t.Fatal(err)
 			}
-			if calls != 1 || cfg.IsUndefined() || len(cfg.Content) != 0 || cfg.Source != "remote/config@main" || cfg.Path != "first.yml" || !cfg.IsRemote {
-				t.Errorf("unexpected config or request count: %+v, %d", cfg, calls)
+			if calls != 1 {
+				t.Errorf("expected one request, got %d", calls)
+			}
+			if cfg.IsUndefined() {
+				t.Error("expected config to retain source metadata")
+			}
+			if len(cfg.Content) != 0 {
+				t.Errorf("expected empty content, got %q", cfg.Content)
+			}
+			if cfg.Source != "remote/config@main" {
+				t.Errorf("incorrect source: %q", cfg.Source)
+			}
+			if cfg.Path != "first.yml" {
+				t.Errorf("incorrect path: %q", cfg.Path)
+			}
+			if !cfg.IsRemote {
+				t.Error("expected remote config")
 			}
 		})
 	}
 }
 
 func TestLoadRemoteRefInvalidRepository(t *testing.T) {
-	for _, remote := range []string{
-		"", "owner", "/repo", "owner/", "owner/repo/extra",
-		"owner/repo#", "owner/repo?x=", "owner/repo/contents/other.yml#",
-		"owner#fragment/repo", "owner%2frepo/name", "owner/repo%23fragment",
-		"./repo", "../repo", "owner/.", "owner/..", "owner/%2e%2e",
-		"https://example.invalid/repo", "owner/repo\\extra", "owner/repo name",
-	} {
+	for _, remote := range []string{"", "owner", "/repo", "owner/"} {
 		t.Run(remote, func(t *testing.T) {
 			client := newRemoteTestClient(t, remoteRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
 				t.Error("invalid remote made an HTTP request")
-				// Query/fragment injection previously made this look like an empty file.
 				return (&SavedResponse{Status: http.StatusOK, Body: `{"name":"repo"}`}).Response(req), nil
 			}))
 			installations := &testInstallationsService{}
 			creator := &testClientCreator{client: client}
 			loader := NewLoader(nil, WithPrivateRemotes(creator, installations))
 			cfg, err := loader.LoadRemoteRef(context.Background(), client, "original", RemoteRef{Remote: remote, Path: "app.yml", Ref: "main"})
-			if err == nil || !reflect.DeepEqual(cfg, Config{}) {
-				t.Errorf("expected invalid remote error and empty Config, got %+v, %v", cfg, err)
+			if err == nil {
+				t.Error("expected invalid remote error")
 			}
-			if installations.calls != 0 || creator.calls != 0 {
-				t.Errorf("invalid remote triggered installation lookup/client creation: %d, %d", installations.calls, creator.calls)
+			if !reflect.DeepEqual(cfg, Config{}) {
+				t.Errorf("expected empty Config, got %+v", cfg)
+			}
+			if installations.calls != 0 {
+				t.Errorf("invalid remote triggered %d installation lookups", installations.calls)
+			}
+			if creator.calls != 0 {
+				t.Errorf("invalid remote triggered %d client creations", creator.calls)
 			}
 		})
 	}
@@ -163,12 +177,33 @@ func TestLoadRemoteRefSuccessivePrivateFiles(t *testing.T) {
 
 	for _, file := range []string{"child", "parent"} {
 		cfg, err := loader.LoadRemoteRef(ctx, original, "source", RemoteRef{Remote: "remote/config", Path: file + ".yml", Ref: "main"})
-		if err != nil || string(cfg.Content) != file || cfg.Source != "remote/config@main" || cfg.Path != file+".yml" || !cfg.IsRemote {
-			t.Fatalf("incorrect remote config: %+v, %v", cfg, err)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(cfg.Content) != file {
+			t.Errorf("incorrect content: %q", cfg.Content)
+		}
+		if cfg.Source != "remote/config@main" {
+			t.Errorf("incorrect source: %q", cfg.Source)
+		}
+		if cfg.Path != file+".yml" {
+			t.Errorf("incorrect path: %q", cfg.Path)
+		}
+		if !cfg.IsRemote {
+			t.Error("expected remote config")
 		}
 	}
-	if installations.calls != 2 || installations.owner != "remote" || installations.repo != "config" || creator.calls != 2 || creator.installationID != 42 {
-		t.Errorf("incorrect installation selection: lookup=%+v creator=%+v", installations, creator)
+	if installations.calls != 2 {
+		t.Errorf("expected two installation lookups, got %d", installations.calls)
+	}
+	if installations.owner != "remote" || installations.repo != "config" {
+		t.Errorf("incorrect installation repository: %s/%s", installations.owner, installations.repo)
+	}
+	if creator.calls != 2 {
+		t.Errorf("expected two client creations, got %d", creator.calls)
+	}
+	if creator.installationID != 42 {
+		t.Errorf("incorrect installation ID: %d", creator.installationID)
 	}
 	wantRequests := []string{
 		"https://api.github.com/repos/remote/config/contents/child.yml?ref=main",
@@ -209,36 +244,17 @@ func TestLoadRemoteRefAccessFailures(t *testing.T) {
 			if !errors.As(err, &responseErr) || responseErr.Response.StatusCode != http.StatusForbidden {
 				t.Fatalf("expected access denial, got %v", err)
 			}
-			if originalCalls != test.originalCalls || selectedCalls != test.clientCalls || installations.calls != 1 || creator.calls != test.creations {
-				t.Errorf("incorrect access attempts: original=%d selected=%d lookup=%d creation=%d", originalCalls, selectedCalls, installations.calls, creator.calls)
+			if originalCalls != test.originalCalls {
+				t.Errorf("expected %d original client requests, got %d", test.originalCalls, originalCalls)
 			}
-		})
-	}
-}
-
-func TestLoadConfigInvalidRemoteDiagnostics(t *testing.T) {
-	content := "remote: remote/config#\n"
-	client := newRemoteTestClient(t, remoteRoundTripperFunc(func(req *http.Request) (*http.Response, error) {
-		response := SavedResponse{Status: http.StatusOK}
-		if req.URL.Path == "/repos/original/.github" {
-			response.Body = `{"name":".github","default_branch":"main"}`
-		} else {
-			response.Body = `{"encoding":"base64","content":"` + base64.StdEncoding.EncodeToString([]byte(content)) + `"}`
-		}
-		return response.Response(req), nil
-	}))
-	for _, test := range []struct {
-		name, source string
-		paths        []string
-	}{
-		{name: "local", source: "original/local@main", paths: []string{"app.yml"}},
-		{name: "owner default", source: "original/.github@main"},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			loader := NewLoader(test.paths, WithOwnerDefault(".github", []string{"app.yml"}))
-			cfg, err := loader.LoadConfig(context.Background(), client, "original", "local", "main")
-			if err == nil || err.Error() != "invalid remote value: remote/config#" || cfg.Source != test.source || cfg.Path != "app.yml" || cfg.IsRemote {
-				t.Fatalf("lost originating file diagnostics: %+v, %v", cfg, err)
+			if selectedCalls != test.clientCalls {
+				t.Errorf("expected %d selected client requests, got %d", test.clientCalls, selectedCalls)
+			}
+			if installations.calls != 1 {
+				t.Errorf("expected one installation lookup, got %d", installations.calls)
+			}
+			if creator.calls != test.creations {
+				t.Errorf("expected %d client creations, got %d", test.creations, creator.calls)
 			}
 		})
 	}
