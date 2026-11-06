@@ -179,6 +179,72 @@ func TestLoadConfig(t *testing.T) {
 	}
 }
 
+func TestLoadRemoteRef(t *testing.T) {
+	tests := map[string]struct {
+		Remote   RemoteRef
+		Expected Config
+		Error    string
+	}{
+		"literalContent": {
+			Remote: RemoteRef{Remote: "test/remote-ref", Path: ".github/test-app.yml", Ref: TestRef},
+			Expected: Config{
+				Content:  []byte("remote: remote/config\npath: config/test-app.yml\nref: develop\n"),
+				Source:   "test/remote-ref@develop",
+				Path:     ".github/test-app.yml",
+				IsRemote: true,
+			},
+		},
+		"missingFile": {
+			Remote: RemoteRef{Remote: "test/local-file", Path: ".github/test-app.v2.yml", Ref: TestRef},
+			Error:  "invalid remote reference: file does not exist",
+		},
+		"defaultBranch": {
+			Remote: RemoteRef{Remote: "remote/config", Path: "config/test-app.yml"},
+			Expected: Config{
+				Content:  []byte("message: hello\n"),
+				Source:   "remote/config@main",
+				Path:     "config/test-app.yml",
+				IsRemote: true,
+			},
+		},
+	}
+
+	ctx := context.Background()
+	client := makeTestClient()
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			ld := NewLoader([]string{".github/test-app.v2.yml", ".github/test-app.yml"})
+			cfg, err := ld.LoadRemoteRef(ctx, client, TestOwner, test.Remote)
+			if test.Error != "" {
+				if err == nil {
+					t.Fatal("expected error loading config, but got nil")
+				}
+				if err.Error() != test.Error {
+					t.Errorf("incorrect error: expected: %q, actual: %q", test.Error, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error loading config: %v", err)
+			}
+
+			if test.Expected.Source != cfg.Source {
+				t.Errorf("incorrect source: expected: %q, actual: %q", test.Expected.Source, cfg.Source)
+			}
+			if test.Expected.Path != cfg.Path {
+				t.Errorf("incorrect path: expected: %q, actual: %q", test.Expected.Path, cfg.Path)
+			}
+			if test.Expected.IsRemote != cfg.IsRemote {
+				t.Errorf("incorrect remote flag: expected: %t, actual: %t", test.Expected.IsRemote, cfg.IsRemote)
+			}
+			if !bytes.Equal(test.Expected.Content, cfg.Content) {
+				t.Errorf("incorrect content\nexpected: %s\n  actual: %s", test.Expected.Content, cfg.Content)
+			}
+		})
+	}
+}
+
 func TestLoadConfigWithPrivateRemotes(t *testing.T) {
 	newClient := func(rp *ResponsePlayer) *github.Client {
 		client, _ := github.NewClient(github.WithHTTPClient(&http.Client{Transport: rp}))

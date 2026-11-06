@@ -332,6 +332,22 @@ func loadConfig(ctx context.Context, client *github.Client, owner, repo, ref str
 }
 ```
 
+To load a specific remote file without discovery or remote-reference parsing, use
+`LoadRemoteRef`. Missing files are errors; existing empty files retain their
+source metadata.
+
+```go
+c, err := loader.LoadRemoteRef(ctx, client, clientOwner, appconfig.RemoteRef{
+    Remote: "example/shared-config",
+    Path:   "config/app.yml",
+    Ref:    "main",
+})
+```
+
+`clientOwner` must be the supplied client's original installation owner, even if
+an earlier load returned a file owned by another organization. Using another
+owner's installation requires `appconfig.WithPrivateRemotes`.
+
 ## OAuth2
 
 The `oauth2` package provides an `http.Handler` implementation that simplifies
