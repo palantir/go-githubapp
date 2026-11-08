@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 
@@ -42,14 +41,12 @@ type MyApplicationConfig struct {
 func ReadConfig(path string) (*Config, error) {
 	var c Config
 
-	data, err := os.ReadFile(path)
+	bytes, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed reading server config file: %s: %w", path, err)
 	}
 
-	dec := yaml.NewDecoder(bytes.NewReader(data))
-	dec.KnownFields(true)
-	if err := dec.Decode(&c); err != nil {
+	if err := yaml.Load(bytes, &c, yaml.WithV2Defaults(), yaml.WithKnownFields()); err != nil {
 		return nil, fmt.Errorf("failed parsing configuration file: %w", err)
 	}
 

@@ -15,7 +15,6 @@
 package appconfig
 
 import (
-	"bytes"
 	"errors"
 
 	"go.yaml.in/yaml/v4"
@@ -30,9 +29,7 @@ func YAMLRemoteRefParser(path string, b []byte) (*RemoteRef, error) {
 		Ref    string  `yaml:"ref"`
 	}
 
-	dec := yaml.NewDecoder(bytes.NewReader(b))
-	dec.KnownFields(true)
-	if err := dec.Decode(&maybeRef); err != nil {
+	if err := yaml.Load(b, &maybeRef, yaml.WithV2Defaults(), yaml.WithKnownFields(), yaml.WithSingleDocument()); err != nil {
 		// assume errors mean this isn't a remote config
 		return nil, nil
 	}
