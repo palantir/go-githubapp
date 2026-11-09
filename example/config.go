@@ -19,7 +19,7 @@ import (
 	"os"
 
 	"github.com/palantir/go-githubapp/githubapp"
-	"gopkg.in/yaml.v2"
+	"go.yaml.in/yaml/v4"
 )
 
 type Config struct {
@@ -46,7 +46,7 @@ func ReadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed reading server config file: %s: %w", path, err)
 	}
 
-	if err := yaml.UnmarshalStrict(bytes, &c); err != nil {
+	if err := yaml.Load(bytes, &c, yaml.WithV2Defaults(), yaml.WithKnownFields()); err != nil {
 		return nil, fmt.Errorf("failed parsing configuration file: %w", err)
 	}
 
