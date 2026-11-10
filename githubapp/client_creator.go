@@ -267,7 +267,7 @@ func (c *clientCreator) NewTokenClient(token string) (*github.Client, error) {
 }
 
 func (c *clientCreator) NewTokenSourceClient(ts oauth2.TokenSource) (*github.Client, error) {
-	tc := oauth2.NewClient(context.Background(), ts)
+	tc := c.newTokenSourceHTTPClient(ts)
 
 	middleware := []ClientMiddleware{}
 	if c.cacheFunc != nil {
@@ -283,7 +283,7 @@ func (c *clientCreator) NewTokenV4Client(token string) (*githubv4.Client, error)
 }
 
 func (c *clientCreator) NewTokenSourceV4Client(ts oauth2.TokenSource) (*githubv4.Client, error) {
-	tc := oauth2.NewClient(context.Background(), ts)
+	tc := c.newTokenSourceHTTPClient(ts)
 	// The v4 API primarily uses POST requests (except for introspection queries)
 	// which we cannot cache, so don't construct the middleware
 	return c.newV4Client(tc, nil, "oauth token")
@@ -301,6 +301,14 @@ func (c *clientCreator) newHTTPClient() *http.Client {
 		Transport: transport,
 		Timeout:   c.timeout,
 	}
+}
+
+// newTokenSourceHTTPClient returns a client that authenticates requests with
+// tokens from ts and uses the same transport and timeout as newHTTPClient.
+func (c *clientCreator) newTokenSourceHTTPClient(ts oauth2.TokenSource) *http.Client {
+	// oauth2.NewClient copies the transport and timeout of the context client
+	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, c.newHTTPClient())
+	return oauth2.NewClient(ctx, ts)
 }
 
 func (c *clientCreator) newClient(base *http.Client, middleware []ClientMiddleware, details string, installID int64) (*github.Client, error) {

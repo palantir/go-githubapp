@@ -15,10 +15,12 @@
 package githubapp
 
 import (
+	"context"
 	"io"
 	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 	"time"
 
@@ -145,4 +147,52 @@ func assertCacheTestRequest(
 		t.Fatalf("incorrect response status: expected %d, actual %d", expectedStatus, actual)
 	}
 	return resp
+}
+
+func TestTokenClientsUseTransportAndTimeout(t *testing.T) {
+	const timeout = 30 * time.Second
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data": {}}`))
+	}))
+	defer srv.Close()
+
+	var authorizations []string
+	transport := roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		authorizations = append(authorizations, r.Header.Get("Authorization"))
+		return http.DefaultTransport.RoundTrip(r)
+	})
+
+	cc := NewClientCreator(srv.URL, srv.URL, 1, nil, WithTransport(transport), WithClientTimeout(timeout))
+	ctx := context.Background()
+
+	v3Client, err := cc.NewTokenClient("token")
+	if err != nil {
+		t.Fatalf("failed to create v3 client: %v", err)
+	}
+	if actual := v3Client.Client().Timeout; actual != timeout {
+		t.Errorf("incorrect v3 client timeout: expected %s, actual %s", timeout, actual)
+	}
+	if _, _, err := v3Client.Users.Get(ctx, ""); err != nil {
+		t.Fatalf("v3 request failed: %v", err)
+	}
+
+	v4Client, err := cc.NewTokenV4Client("token")
+	if err != nil {
+		t.Fatalf("failed to create v4 client: %v", err)
+	}
+	var query struct {
+		Viewer struct {
+			Login string
+		}
+	}
+	if err := v4Client.Query(ctx, &query, nil); err != nil {
+		t.Fatalf("v4 request failed: %v", err)
+	}
+
+	expected := []string{"Bearer token", "Bearer token"}
+	if !slices.Equal(expected, authorizations) {
+		t.Errorf("incorrect requests sent through the configured transport: expected %q, actual %q", expected, authorizations)
+	}
 }
