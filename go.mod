@@ -15,7 +15,7 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/shurcooL/githubv4 v0.0.0-20260209031235-2402fdf4a9ed
 	go.yaml.in/yaml/v4 v4.0.0
-	golang.org/x/oauth2 v0.37.0
+	golang.org/x/oauth2 v0.38.0
 )
 
 require (
