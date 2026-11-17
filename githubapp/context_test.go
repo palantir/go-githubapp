@@ -84,6 +84,63 @@ func TestPreparePRContext(t *testing.T) {
 	assertField(t, "pull request number", 128, entry.Number)
 }
 
+func TestPrepareRepoContextPushEventRepository(t *testing.T) {
+	var out bytes.Buffer
+
+	logger := zerolog.New(&out)
+	ctx := logger.WithContext(context.Background())
+
+	_, logger = PrepareRepoContext(ctx, 42, &github.PushEventRepository{
+		Name: new("test"),
+		Owner: &github.User{
+			Login: new("mhaypenny"),
+		},
+	})
+
+	logger.Info().Msg("")
+
+	var entry struct {
+		ID    int64  `json:"github_installation_id"`
+		Owner string `json:"github_repository_owner"`
+		Name  string `json:"github_repository_name"`
+	}
+	if err := json.Unmarshal(out.Bytes(), &entry); err != nil {
+		t.Fatalf("invalid log entry: %s: %v", out.String(), err)
+	}
+
+	assertField(t, "installation ID", int64(42), entry.ID)
+	assertField(t, "repository owner", "mhaypenny", entry.Owner)
+	assertField(t, "repository name", "test", entry.Name)
+}
+
+func TestPrepareRepoContextNilRepository(t *testing.T) {
+	for name, repo := range map[string]RepositoryInfo{
+		"untyped nil":              nil,
+		"nil *github.Repository":   (*github.Repository)(nil),
+		"nil *PushEventRepository": (*github.PushEventRepository)(nil),
+	} {
+		t.Run(name, func(t *testing.T) {
+			var out bytes.Buffer
+
+			logger := zerolog.New(&out)
+			ctx := logger.WithContext(context.Background())
+
+			_, logger = PrepareRepoContext(ctx, 42, repo)
+			logger.Info().Msg("")
+
+			var entry map[string]any
+			if err := json.Unmarshal(out.Bytes(), &entry); err != nil {
+				t.Fatalf("invalid log entry: %s: %v", out.String(), err)
+			}
+			for _, key := range []string{LogKeyRepositoryOwner, LogKeyRepositoryName} {
+				if _, ok := entry[key]; ok {
+					t.Errorf("unexpected %s in log entry for a nil repository: %s", key, out.String())
+				}
+			}
+		})
+	}
+}
+
 func assertField(t *testing.T, name string, expected, actual any) {
 	if expected != actual {
 		t.Errorf("incorrect %s: expected %#v (%T), but was %#v (%T)", name, expected, expected, actual, actual)
