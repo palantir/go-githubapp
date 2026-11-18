@@ -1,0 +1,5 @@
+type: improvement
+improvement:
+  description: '`PrepareRepoContext` and `PreparePRContext` accept any repository type with `GetName` and `GetOwner`, including `*github.PushEventRepository`, through a new `RepositoryInfo` interface.'
+  links:
+  - https://github.com/palantir/go-githubapp/pull/663
