@@ -30,9 +30,20 @@ const (
 // NewDefaultCachingClientCreator returns a ClientCreator using values from the
 // configuration or other defaults.
 func NewDefaultCachingClientCreator(c Config, opts ...ClientOption) (ClientCreator, error) {
+	urls, err := c.GetURLs()
+	if err != nil {
+		return nil, err
+	}
+	var v3, v4 string
+	if urls.APIv3 != nil {
+		v3 = urls.APIv3.String()
+	}
+	if urls.APIv4 != nil {
+		v4 = urls.APIv4.String()
+	}
 	delegate := NewClientCreator(
-		c.V3APIURL,
-		c.V4APIURL,
+		v3,
+		v4,
 		c.App.IntegrationID,
 		[]byte(c.App.PrivateKey),
 		opts...,
