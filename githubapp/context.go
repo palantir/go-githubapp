@@ -30,9 +30,23 @@ const (
 	LogKeyInstallationID  string = "github_installation_id"
 )
 
+// RepositoryInfo is the subset of a repository that PrepareRepoContext and
+// PreparePRContext use. It is satisfied by *github.Repository and by the other
+// repository types in go-github, such as *github.PushEventRepository from
+// push events, so handlers can pass the repository from any event.
+type RepositoryInfo interface {
+	GetName() string
+	GetOwner() *github.User
+}
+
+var (
+	_ RepositoryInfo = (*github.Repository)(nil)
+	_ RepositoryInfo = (*github.PushEventRepository)(nil)
+)
+
 // PrepareRepoContext adds information about a repository to the logger in a
 // context and returns the modified context and logger.
-func PrepareRepoContext(ctx context.Context, installationID int64, repo *github.Repository) (context.Context, zerolog.Logger) {
+func PrepareRepoContext(ctx context.Context, installationID int64, repo RepositoryInfo) (context.Context, zerolog.Logger) {
 	logctx := zerolog.Ctx(ctx).With()
 
 	logctx = attachInstallationLogKeys(logctx, installationID)
@@ -44,7 +58,7 @@ func PrepareRepoContext(ctx context.Context, installationID int64, repo *github.
 
 // PreparePRContext adds information about a pull request to the logger in a
 // context and returns the modified context and logger.
-func PreparePRContext(ctx context.Context, installationID int64, repo *github.Repository, number int) (context.Context, zerolog.Logger) {
+func PreparePRContext(ctx context.Context, installationID int64, repo RepositoryInfo, number int) (context.Context, zerolog.Logger) {
 	logctx := zerolog.Ctx(ctx).With()
 
 	logctx = attachInstallationLogKeys(logctx, installationID)
@@ -62,13 +76,19 @@ func attachInstallationLogKeys(logctx zerolog.Context, installID int64) zerolog.
 	return logctx
 }
 
-func attachRepoLogKeys(logctx zerolog.Context, repo *github.Repository) zerolog.Context {
-	if repo != nil {
-		return logctx.
-			Str(LogKeyRepositoryOwner, repo.GetOwner().GetLogin()).
-			Str(LogKeyRepositoryName, repo.GetName())
+func attachRepoLogKeys(logctx zerolog.Context, repo RepositoryInfo) zerolog.Context {
+	if repo == nil {
+		return logctx
 	}
-	return logctx
+	// A nil *github.Repository (or other nil pointer) in a non-nil interface
+	// has no owner and no name; skip it, as for a nil repository before.
+	owner, name := repo.GetOwner(), repo.GetName()
+	if owner == nil && name == "" {
+		return logctx
+	}
+	return logctx.
+		Str(LogKeyRepositoryOwner, owner.GetLogin()).
+		Str(LogKeyRepositoryName, name)
 }
 
 func attachPullRequestLogKeys(logctx zerolog.Context, number int) zerolog.Context {
